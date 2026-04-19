@@ -1,0 +1,14 @@
+node_modules
+out
+dist
+dist-installer
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.env
+.env.local
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

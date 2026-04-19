@@ -1,0 +1,104 @@
+{
+  "name": "studio-manager",
+  "productName": "نظام إدارة مبيعات الاستوديو",
+  "version": "1.0.0",
+  "description": "نظام إدارة مبيعات الاستوديو - تتبع المعاملات، العملاء، الإيجار، والمخزون",
+  "main": "out/main/index.js",
+  "author": {
+    "name": "Studio Manager",
+    "email": "owner@studio.local"
+  },
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "postinstall": "electron-builder install-app-deps",
+    "build:win": "electron-vite build && electron-builder --win --x64",
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@hookform/resolvers": "^3.9.0",
+    "@react-pdf/renderer": "^4.0.0",
+    "@tanstack/react-query": "^5.59.0",
+    "better-sqlite3": "^11.3.0",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
+    "electron-updater": "^6.3.0",
+    "exceljs": "^4.4.0",
+    "lucide-react": "^0.453.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "react-router-dom": "^6.27.0",
+    "recharts": "^2.13.0",
+    "tailwind-merge": "^2.5.4",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.7.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "electron": "^32.1.2",
+    "electron-builder": "^25.0.5",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8"
+  },
+  "build": {
+    "appId": "com.studio.manager",
+    "productName": "نظام إدارة مبيعات الاستوديو",
+    "directories": {
+      "buildResources": "resources",
+      "output": "dist-installer"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "NightBaRron1412",
+        "repo": "studio_managment"
+      }
+    ],
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.{node,dll}"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "resources/icon.ico",
+      "executableName": "StudioManager"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "نظام إدارة مبيعات الاستوديو",
+      "installerIcon": "resources/icon.ico",
+      "uninstallerIcon": "resources/icon.ico",
+      "installerHeaderIcon": "resources/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "language": "1025"
+    }
+  }
+}
