@@ -19,6 +19,27 @@ export interface Item {
   is_active: number
   notes: string | null
   created_at: string
+  // Stock tracking — when tracks_stock=0 the other fields are unused.
+  tracks_stock: number
+  stock_qty: number
+  low_stock_threshold: number
+}
+
+export interface LowStockItem {
+  id: ID
+  name_ar: string
+  size: string | null
+  category_name: string | null
+  stock_qty: number
+  low_stock_threshold: number
+  is_out: boolean
+}
+
+export interface Staff {
+  id: ID
+  name: string
+  is_active: number
+  created_at: string
 }
 
 export interface Client {
@@ -82,6 +103,9 @@ export interface TransactionWithLines extends Transaction {
   lines: TransactionLine[]
   remaining: number
   is_paid: boolean
+  // Set by create/update when one or more lines drove a tracked item's
+  // stock_qty to <= 0. Renderer uses this to surface a warning toast.
+  negative_stock_items?: { name: string; stock: number }[]
 }
 
 export interface Withdrawal {
@@ -266,6 +290,21 @@ export interface API {
   itemCreate: (input: Omit<Item, 'id' | 'created_at'>) => Promise<Item>
   itemUpdate: (id: ID, input: Partial<Omit<Item, 'id' | 'created_at'>>) => Promise<Item>
   itemDelete: (id: ID) => Promise<void>
+  itemsLowStock: () => Promise<LowStockItem[]>
+  itemRestock: (input: {
+    item_id: ID
+    quantity: number
+    cost?: number
+    supplier?: string | null
+    note?: string | null
+    date?: string
+  }) => Promise<Item>
+
+  // Staff
+  staffList: (opts?: { only_active?: boolean }) => Promise<Staff[]>
+  staffCreate: (input: { name: string; is_active?: number }) => Promise<Staff>
+  staffUpdate: (id: ID, input: Partial<Pick<Staff, 'name' | 'is_active'>>) => Promise<Staff>
+  staffDelete: (id: ID) => Promise<void>
 
   // Transactions
   transactionsList: (filter?: { q?: string; date_from?: string; date_to?: string; client_id?: ID; only_unpaid?: boolean }) => Promise<Transaction[]>

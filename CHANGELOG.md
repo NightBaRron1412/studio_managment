@@ -5,6 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.0] — 2026-04-20
+
+### Added
+- 📦 **Inventory & stock tracking** — per-item toggle on each item in الإعدادات → الأصناف. When enabled:
+  - Set the current on-hand quantity and a low-stock threshold.
+  - Every sale automatically decrements the stock (line quantity × tracked items only). Editing or deleting a sale rebalances stock cleanly. Restoring a deleted sale re-applies the deduction.
+  - Negative stock is allowed with a toast warning, so you never get blocked from saving a sale.
+  - **+ تزويد** button on each item opens a quick restock dialog (quantity + optional cost & supplier) — bumps stock and writes a linked row to the supplier purchases ledger.
+- 🚨 **Low-stock notifications** in three places:
+  - Red badge on the **الإعدادات** link in the sidebar showing the count of low/out items (refreshes every 60s).
+  - **Dashboard alert card** listing the items that need attention, with a quick jump to restock.
+  - **One-shot toast on app launch** summarising what's low.
+- 👥 **Staff list** — manage staff in الإعدادات → الموظفون. The «الموظف» field on معاملة جديدة is now a combobox sourced from this list, with the typed-name fallback preserved for one-off entries.
+
+### Changed
+- 🏷️ Renamed the «المشتريات والمخزون» page to **مشتريات الموردين** to avoid confusion with the new on-hand stock system. The sidebar entry now reads مشتريات الموردين too. The page itself is still the same supplier-purchases ledger you used before — restocking a tracked item from الإعدادات automatically writes into it.
+
+### Database
+- New columns (auto-migrated on first launch): `items.tracks_stock`, `items.stock_qty`, `items.low_stock_threshold`, `inventory_purchases.item_id`.
+- New table: `staff (id, name, is_active, created_at)`.
+
+> ⚠️ Same one-time manual install caveat as the 1.0.x signed releases — download `...-Setup-1.1.0.exe` once from GitHub Releases, then in-app updates work going forward.
+
+---
+
 ## [1.0.10] — 2026-04-20
 
 ### Added

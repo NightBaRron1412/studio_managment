@@ -31,6 +31,10 @@ export function NewTransaction(): JSX.Element {
   const qc = useQueryClient()
 
   const { data: settings = {} } = useQuery({ queryKey: ['settings'], queryFn: () => api.settingsAll() })
+  const { data: staffList = [] } = useQuery({
+    queryKey: ['staff'],
+    queryFn: () => api.staffList({ only_active: true })
+  })
   const vatEnabled = settings.vat_enabled === 'true'
   const defaultVat = Number(settings.vat_default_percent) || 0
 
@@ -192,7 +196,17 @@ export function NewTransaction(): JSX.Element {
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['clients'] })
       qc.invalidateQueries({ queryKey: ['debtors'] })
+      qc.invalidateQueries({ queryKey: ['items'] })
+      qc.invalidateQueries({ queryKey: ['low-stock'] })
       toast.success(editing ? 'تم حفظ التعديل' : 'تم حفظ المعاملة')
+      // Surface any items that this sale drove to/below zero so the owner
+      // remembers to restock. The repo attaches negative_stock_items only
+      // when at least one tracked item went non-positive.
+      const neg = tx.negative_stock_items
+      if (neg && neg.length) {
+        const list = neg.map((n) => `${n.name} (${n.stock})`).join(' • ')
+        toast.error(`⚠️ المخزون نفد: ${list}`)
+      }
       nav(`/transactions/${tx.id}`)
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحفظ')
@@ -274,12 +288,29 @@ export function NewTransaction(): JSX.Element {
               </div>
               <div>
                 <label className="label">الموظف (اختياري)</label>
-                <input
-                  className="input"
-                  placeholder="من سجّل المعاملة"
-                  value={staff}
-                  onChange={(e) => setStaff(e.target.value)}
-                />
+                {staffList.length > 0 ? (
+                  <>
+                    <input
+                      className="input"
+                      list="staff-options"
+                      placeholder="اختر من القائمة أو اكتب اسماً"
+                      value={staff}
+                      onChange={(e) => setStaff(e.target.value)}
+                    />
+                    <datalist id="staff-options">
+                      {staffList.map((s) => (
+                        <option key={s.id} value={s.name} />
+                      ))}
+                    </datalist>
+                  </>
+                ) : (
+                  <input
+                    className="input"
+                    placeholder="من سجّل المعاملة (أضف الموظفين من الإعدادات)"
+                    value={staff}
+                    onChange={(e) => setStaff(e.target.value)}
+                  />
+                )}
               </div>
             </div>
           </div>

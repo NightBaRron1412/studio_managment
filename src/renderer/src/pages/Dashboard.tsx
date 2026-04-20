@@ -48,6 +48,10 @@ function WeeklyTile({ current, previous }: { current: number; previous: number }
 export function Dashboard(): JSX.Element {
   const nav = useNavigate()
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.dashboard() })
+  const { data: lowStock = [] } = useQuery({
+    queryKey: ['low-stock'],
+    queryFn: () => api.itemsLowStock()
+  })
 
   if (isLoading || !data) {
     return (
@@ -70,6 +74,30 @@ export function Dashboard(): JSX.Element {
 
       {/* Alerts row */}
       <div className="space-y-3 mb-6">
+        {lowStock.length > 0 && (
+          <div
+            className="card p-4 border-r-4 border-r-bad bg-red-50/50 cursor-pointer hover:bg-red-50"
+            onClick={() => nav('/settings')}
+            title="افتح الإعدادات لتزويد المخزون"
+          >
+            <div className="flex items-center gap-3">
+              <Package className="text-bad shrink-0" size={22} />
+              <div className="flex-1">
+                <div className="font-bold text-ink">
+                  {fmtNumber(lowStock.length)} صنف مخزونه منخفض أو نفد
+                </div>
+                <div className="text-sm text-ink-muted">
+                  {lowStock
+                    .slice(0, 4)
+                    .map((s) => `${s.name_ar} (${s.is_out ? 'نفد' : s.stock_qty})`)
+                    .join(' • ')}
+                  {lowStock.length > 4 ? ' • ...' : ''}
+                </div>
+              </div>
+              <span className="chip">تزويد</span>
+            </div>
+          </div>
+        )}
         {data.outstanding_total > 0 && (
           <div
             className="card p-4 border-r-4 border-r-warn bg-amber-50/50 flex items-center gap-3 cursor-pointer hover:bg-amber-50"

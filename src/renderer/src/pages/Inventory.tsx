@@ -58,8 +58,8 @@ export function Inventory(): JSX.Element {
   return (
     <>
       <PageHeader
-        title="المشتريات والمخزون"
-        subtitle="تسجيل ما تم شراؤه من مستلزمات وخامات"
+        title="مشتريات الموردين"
+        subtitle="سجل المشتريات من الموردين. لتتبّع كميات المخزون افتح الإعدادات → الأصناف."
         actions={
           <button className="btn-primary" onClick={() => setOpen(true)}>
             <Plus size={18} />

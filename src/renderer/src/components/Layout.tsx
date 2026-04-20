@@ -7,8 +7,9 @@ import { PinLock } from './PinLock'
 import { Onboarding } from './Onboarding'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { setFormatPrefs } from '@/lib/format'
+import { toast } from '@/store/toast'
 
 export function Layout(): JSX.Element {
   const qc = useQueryClient()
@@ -57,6 +58,29 @@ export function Layout(): JSX.Element {
     await api.settingSet('theme', next)
     qc.invalidateQueries({ queryKey: ['settings'] })
   }, [settings, qc])
+
+  // One-shot low-stock toast on app startup. Fires only after the user is
+  // past PIN/onboarding so it doesn't appear on the lock screen.
+  const lowStockToastShown = useRef(false)
+  const canShowStartupToast = (!pinEnabled || unlocked) && onboardingDone
+  const { data: lowStockOnStart = [] } = useQuery({
+    queryKey: ['low-stock-startup'],
+    queryFn: () => api.itemsLowStock(),
+    enabled: canShowStartupToast,
+    staleTime: Infinity
+  })
+  useEffect(() => {
+    if (!canShowStartupToast) return
+    if (lowStockToastShown.current) return
+    if (lowStockOnStart.length === 0) return
+    lowStockToastShown.current = true
+    const names = lowStockOnStart
+      .slice(0, 3)
+      .map((s) => s.name_ar)
+      .join('، ')
+    const more = lowStockOnStart.length > 3 ? ` و${lowStockOnStart.length - 3} غيرها` : ''
+    toast.error(`⚠️ ${lowStockOnStart.length} صنف يحتاج تزويد: ${names}${more}`)
+  }, [canShowStartupToast, lowStockOnStart])
 
   const togglePrivacy = useCallback(async (): Promise<void> => {
     const next = privacyMode ? 'false' : 'true'

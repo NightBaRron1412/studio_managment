@@ -104,7 +104,16 @@ This app is **purpose-built for photography studios**, **fully Arabic with prope
 ### 💸 Money Out
 - **سحوبات نقدية** — cash withdrawals with date, amount, person, reason
 - **إيجار شهري** — month-by-month rent with partial payments and progress bar
-- **مشتريات ومخزون** — supplies tracking with quantity, cost, supplier
+- **مشتريات الموردين** — supplier purchases ledger with quantity, cost, supplier
+
+### 📦 Inventory & Stock
+- **تتبّع المخزون لكل صنف** — per-item toggle, so services (photo session) stay simple while physical goods (frames, CDs, prints) get real stock counts
+- **تنبيهات المخزون المنخفض** — sidebar badge, dashboard alert, and a one-shot toast on app start summarising what needs restocking
+- **خصم تلقائي من المخزون** — every sale decrements the stock for tracked items; editing or deleting a sale automatically rebalances stock
+- **تزويد سريع** — `+ تزويد` per item: enter quantity, optional cost & supplier; bumps stock and records the purchase
+
+### 👥 Staff
+- **قائمة الموظفين** — manage staff in Settings → الموظفون; pick from a dropdown when recording a transaction instead of retyping the name (free-text fallback still works)
 
 ### 📊 Reports & Insights
 - **تقارير ذكية** — date range, by item, by category, by payment method

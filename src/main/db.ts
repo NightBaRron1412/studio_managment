@@ -200,6 +200,24 @@ function migrate(d: Database.Database): void {
   addColumnIfMissing(d, 'transactions', 'pickup_promised_date', 'pickup_promised_date TEXT')
   addColumnIfMissing(d, 'transactions', 'pickup_delivered_at', 'pickup_delivered_at TEXT')
 
+  // Inventory tracking on items + purchase-to-item linking
+  addColumnIfMissing(d, 'items', 'tracks_stock', 'tracks_stock INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing(d, 'items', 'stock_qty', 'stock_qty REAL NOT NULL DEFAULT 0')
+  addColumnIfMissing(d, 'items', 'low_stock_threshold', 'low_stock_threshold REAL NOT NULL DEFAULT 0')
+  addColumnIfMissing(d, 'inventory_purchases', 'item_id', 'item_id INTEGER REFERENCES items(id) ON DELETE SET NULL')
+
+  // Staff list — replaces free-text staff_name on transactions
+  runBatch(
+    d,
+    `CREATE TABLE IF NOT EXISTS staff (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       name TEXT NOT NULL,
+       is_active INTEGER NOT NULL DEFAULT 1,
+       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+     );
+     CREATE INDEX IF NOT EXISTS idx_staff_active ON staff(is_active);`
+  )
+
   // Backfill: existing transactions get paid_amount = total (assume fully paid history)
   d.prepare(
     `UPDATE transactions SET paid_amount = total WHERE paid_amount = 0 AND total > 0`

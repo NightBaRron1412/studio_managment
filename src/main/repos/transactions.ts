@@ -45,6 +45,33 @@ function withRemaining(tx: Transaction, lines: TransactionLine[]): TransactionWi
   return { ...tx, lines, remaining, is_paid: remaining <= 0.0001 }
 }
 
+// Apply a stock delta (sign = -1 for sale, +1 for restore on delete/edit) to
+// every line whose item is stock-tracked. Returns items that ended up <= 0
+// so the caller can surface a "ran out" warning to the renderer.
+function applyStockDelta(
+  db: ReturnType<typeof getDb>,
+  lines: Array<{ item_id: ID | null; quantity: number }>,
+  sign: 1 | -1
+): Array<{ name: string; stock: number }> {
+  const negative: Array<{ name: string; stock: number }> = []
+  const getItem = db.prepare('SELECT id, name_ar, tracks_stock, stock_qty FROM items WHERE id = ?')
+  const upd = db.prepare('UPDATE items SET stock_qty = stock_qty + ? WHERE id = ?')
+  for (const l of lines) {
+    if (l.item_id == null) continue
+    const it = getItem.get(l.item_id) as
+      | { id: ID; name_ar: string; tracks_stock: number; stock_qty: number }
+      | undefined
+    if (!it || it.tracks_stock !== 1) continue
+    const delta = sign * Number(l.quantity)
+    upd.run(delta, l.item_id)
+    const newQty = it.stock_qty + delta
+    if (sign === -1 && newQty <= 0) {
+      negative.push({ name: it.name_ar, stock: newQty })
+    }
+  }
+  return negative
+}
+
 function fetchWithLines(id: ID): TransactionWithLines | null {
   const db = getDb()
   const tx = db
@@ -134,6 +161,7 @@ export const TransactionsRepo = {
 
   create(input: TransactionInput): TransactionWithLines {
     const db = getDb()
+    let warnings: Array<{ name: string; stock: number }> = []
     const tx = db.transaction(() => {
       const txNo = nextTransactionNo()
       const t = computeTotals(input)
@@ -173,16 +201,24 @@ export const TransactionsRepo = {
         const sub = Number(l.quantity) * Number(l.unit_price)
         insLine.run(txId, l.item_id, l.custom_name, Number(l.quantity), Number(l.unit_price), sub, l.note ?? null)
       }
+      warnings = applyStockDelta(db, input.lines, -1)
       return txId
     })()
-    return fetchWithLines(tx)!
+    const out = fetchWithLines(tx)!
+    if (warnings.length) out.negative_stock_items = warnings
+    return out
   },
 
   update(id: ID, input: TransactionInput): TransactionWithLines {
     const db = getDb()
+    let warnings: Array<{ name: string; stock: number }> = []
     db.transaction(() => {
       const t = computeTotals(input)
       const paid = Math.min(Math.max(0, Number(input.paid_amount) || 0), t.total)
+      // Restore stock from the previous version of this transaction's lines
+      // before applying the new lines, so a reorder/quantity-edit nets out.
+      const oldLines = fetchLines(id)
+      applyStockDelta(db, oldLines, +1)
       db.prepare(
         `UPDATE transactions SET date = ?, client_id = ?, staff_name = ?, notes = ?, payment_method = ?,
          subtotal = ?, discount_type = ?, discount_value = ?, discount_amount = ?,
@@ -216,12 +252,21 @@ export const TransactionsRepo = {
         const sub = Number(l.quantity) * Number(l.unit_price)
         insLine.run(id, l.item_id, l.custom_name, Number(l.quantity), Number(l.unit_price), sub, l.note ?? null)
       }
+      warnings = applyStockDelta(db, input.lines, -1)
     })()
-    return fetchWithLines(id)!
+    const out = fetchWithLines(id)!
+    if (warnings.length) out.negative_stock_items = warnings
+    return out
   },
 
   delete(id: ID): void {
-    getDb().prepare(`UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?`).run(id)
+    const db = getDb()
+    db.transaction(() => {
+      // Restore stock for tracked items before soft-deleting the row.
+      const lines = fetchLines(id)
+      applyStockDelta(db, lines, +1)
+      db.prepare(`UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?`).run(id)
+    })()
   },
 
   markPaid(id: ID, additional: number): TransactionWithLines {

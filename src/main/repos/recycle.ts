@@ -35,7 +35,26 @@ export const RecycleRepo = {
 
   restore(kind: Kind, id: ID): void {
     const cfg = TABLES[kind]
-    getDb().prepare(`UPDATE ${cfg.table} SET deleted_at = NULL WHERE id = ?`).run(id)
+    const db = getDb()
+    db.transaction(() => {
+      // Re-decrement stock when restoring a previously-deleted transaction —
+      // delete restored stock in the first place, so restore must put it back.
+      if (kind === 'transaction') {
+        const lines = db
+          .prepare(
+            `SELECT ti.item_id, ti.quantity FROM transaction_items ti WHERE ti.transaction_id = ?`
+          )
+          .all(id) as Array<{ item_id: ID | null; quantity: number }>
+        const upd = db.prepare(
+          `UPDATE items SET stock_qty = stock_qty - ?
+           WHERE id = ? AND tracks_stock = 1`
+        )
+        for (const l of lines) {
+          if (l.item_id != null) upd.run(Number(l.quantity), l.item_id)
+        }
+      }
+      db.prepare(`UPDATE ${cfg.table} SET deleted_at = NULL WHERE id = ?`).run(id)
+    })()
   },
 
   purge(kind: Kind, id: ID): void {

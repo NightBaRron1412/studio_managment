@@ -30,6 +30,14 @@ const api = {
   itemCreate: (input: unknown) => call('item:create', input),
   itemUpdate: (id: number, input: unknown) => call('item:update', id, input),
   itemDelete: (id: number) => call('item:delete', id),
+  itemsLowStock: () => call('items:lowStock'),
+  itemRestock: (input: unknown) => call('item:restock', input),
+
+  // Staff
+  staffList: (opts?: unknown) => call('staff:list', opts),
+  staffCreate: (input: unknown) => call('staff:create', input),
+  staffUpdate: (id: number, input: unknown) => call('staff:update', id, input),
+  staffDelete: (id: number) => call('staff:delete', id),
 
   // Transactions
   transactionsList: (filter?: unknown) => call('transactions:list', filter),

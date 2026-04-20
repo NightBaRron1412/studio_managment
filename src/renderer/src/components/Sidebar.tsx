@@ -1,4 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
 import {
   Home,
   PlusCircle,
@@ -56,7 +58,7 @@ const links: LinkDef[] = [
   { to: '/cash-close', label: 'تقفيلة اليوم', icon: CalculatorIcon, end: true },
   { to: '/withdrawals', label: 'السحوبات النقدية', icon: Wallet, end: true },
   { to: '/rent', label: 'الإيجار', icon: Building2, end: true },
-  { to: '/inventory', label: 'المشتريات', icon: Package, end: true },
+  { to: '/inventory', label: 'مشتريات الموردين', icon: Package, end: true },
   { to: '/reports', label: 'التقارير', icon: BarChart3, end: true },
   { to: '/recycle', label: 'سلة المحذوفات', icon: Trash2, end: true },
   { to: '/settings', label: 'الإعدادات', icon: SettingsIcon, end: true }
@@ -64,6 +66,14 @@ const links: LinkDef[] = [
 
 export function Sidebar(): JSX.Element {
   const loc = useLocation()
+  // Low-stock badge — refresh every 60s so newly-sold items light up the
+  // sidebar without requiring a route change.
+  const { data: lowStock = [] } = useQuery({
+    queryKey: ['low-stock'],
+    queryFn: () => api.itemsLowStock(),
+    refetchInterval: 60_000
+  })
+  const lowStockCount = lowStock.length
   return (
     <aside className="w-64 shrink-0 bg-bg-card border-l border-bg-subtle flex flex-col">
       <div className="px-5 py-5 border-b border-bg-subtle">
@@ -85,6 +95,9 @@ export function Sidebar(): JSX.Element {
             : l.end
               ? loc.pathname === l.to
               : loc.pathname.startsWith(l.to)
+          // Only the Settings link gets the low-stock badge — that's where
+          // the user actually goes to restock items.
+          const showBadge = l.to === '/settings' && lowStockCount > 0
           return (
             <NavLink
               key={l.to}
@@ -93,7 +106,15 @@ export function Sidebar(): JSX.Element {
               className={() => cn('nav-link', active && 'active')}
             >
               <Icon size={20} />
-              <span>{l.label}</span>
+              <span className="flex-1">{l.label}</span>
+              {showBadge && (
+                <span
+                  className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] inline-flex items-center justify-center px-1 num"
+                  title="أصناف مخزونها منخفض أو نفد"
+                >
+                  {lowStockCount}
+                </span>
+              )}
             </NavLink>
           )
         })}

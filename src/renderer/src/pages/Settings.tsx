@@ -3,14 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { fmtMoney } from '@/lib/format'
-import { Plus, Pencil, Trash2, Save, Database, Tag, Package, Building, Download, Upload, Info, Mail, Phone, Heart, Camera, Image as ImageIcon, Lock, Unlock, FileSpreadsheet, RefreshCw, AlertTriangle, Eraser, Bomb } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, Database, Tag, Package, Building, Download, Upload, Info, Mail, Phone, Heart, Camera, Image as ImageIcon, Lock, Unlock, FileSpreadsheet, RefreshCw, AlertTriangle, Eraser, Bomb, PackagePlus, Users } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
-import type { Category, Item } from '@shared/types'
+import type { Category, Item, Staff } from '@shared/types'
 import { cn } from '@/lib/cn'
 
-type Tab = 'items' | 'categories' | 'business' | 'security' | 'data' | 'about'
+type Tab = 'items' | 'categories' | 'staff' | 'business' | 'security' | 'data' | 'about'
 
 export function Settings(): JSX.Element {
   const [tab, setTab] = useState<Tab>('items')
@@ -23,6 +23,7 @@ export function Settings(): JSX.Element {
         <div className="border-b border-bg-subtle flex flex-wrap">
           <TabButton active={tab === 'items'} onClick={() => setTab('items')} icon={<Package size={16} />}>الأصناف والأسعار</TabButton>
           <TabButton active={tab === 'categories'} onClick={() => setTab('categories')} icon={<Tag size={16} />}>التصنيفات</TabButton>
+          <TabButton active={tab === 'staff'} onClick={() => setTab('staff')} icon={<Users size={16} />}>الموظفون</TabButton>
           <TabButton active={tab === 'business'} onClick={() => setTab('business')} icon={<Building size={16} />}>بيانات المحل</TabButton>
           <TabButton active={tab === 'security'} onClick={() => setTab('security')} icon={<Lock size={16} />}>الحماية</TabButton>
           <TabButton active={tab === 'data'} onClick={() => setTab('data')} icon={<Database size={16} />}>البيانات والنسخ الاحتياطي</TabButton>
@@ -31,6 +32,7 @@ export function Settings(): JSX.Element {
         <div className="p-5">
           {tab === 'items' && <ItemsTab />}
           {tab === 'categories' && <CategoriesTab />}
+          {tab === 'staff' && <StaffTab />}
           {tab === 'business' && <BusinessTab />}
           {tab === 'security' && <SecurityTab />}
           {tab === 'data' && <DataTab />}
@@ -82,6 +84,16 @@ function ItemsTab(): JSX.Element {
   const [price, setPrice] = useState('')
   const [catId, setCatId] = useState<number | null>(null)
   const [active, setActive] = useState(true)
+  const [tracksStock, setTracksStock] = useState(false)
+  const [stockQty, setStockQty] = useState('')
+  const [lowStock, setLowStock] = useState('')
+
+  // Restock dialog state — separate from the item edit dialog so adding
+  // stock to an existing item doesn't reopen the full edit form.
+  const [restockItem, setRestockItem] = useState<Item | null>(null)
+  const [restockQty, setRestockQty] = useState('')
+  const [restockCost, setRestockCost] = useState('')
+  const [restockSupplier, setRestockSupplier] = useState('')
 
   const openNew = (): void => {
     setEditing(null)
@@ -90,6 +102,9 @@ function ItemsTab(): JSX.Element {
     setPrice('')
     setCatId(cats[0]?.id ?? null)
     setActive(true)
+    setTracksStock(false)
+    setStockQty('')
+    setLowStock('')
     setOpen(true)
   }
   const openEdit = (it: Item): void => {
@@ -99,7 +114,16 @@ function ItemsTab(): JSX.Element {
     setPrice(String(it.default_price))
     setCatId(it.category_id)
     setActive(!!it.is_active)
+    setTracksStock(!!it.tracks_stock)
+    setStockQty(String(it.stock_qty ?? 0))
+    setLowStock(String(it.low_stock_threshold ?? 0))
     setOpen(true)
+  }
+  const openRestock = (it: Item): void => {
+    setRestockItem(it)
+    setRestockQty('')
+    setRestockCost('')
+    setRestockSupplier('')
   }
 
   const save = useMutation({
@@ -110,7 +134,10 @@ function ItemsTab(): JSX.Element {
         size: size || null,
         default_price: Number(price) || 0,
         is_active: active ? 1 : 0,
-        notes: null
+        notes: null,
+        tracks_stock: tracksStock ? 1 : 0,
+        stock_qty: tracksStock ? Number(stockQty) || 0 : 0,
+        low_stock_threshold: tracksStock ? Number(lowStock) || 0 : 0
       }
       return editing ? api.itemUpdate(editing.id, input) : api.itemCreate(input)
     },
@@ -130,6 +157,25 @@ function ItemsTab(): JSX.Element {
       qc.invalidateQueries({ queryKey: ['items', 'all-settings'] })
       toast.success('تم الحذف')
     }
+  })
+
+  const restock = useMutation({
+    mutationFn: () =>
+      api.itemRestock({
+        item_id: restockItem!.id,
+        quantity: Number(restockQty) || 0,
+        cost: Number(restockCost) || 0,
+        supplier: restockSupplier.trim() || null
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['items'] })
+      qc.invalidateQueries({ queryKey: ['items', 'all-settings'] })
+      qc.invalidateQueries({ queryKey: ['low-stock'] })
+      qc.invalidateQueries({ queryKey: ['inventory'] })
+      toast.success('تم تزويد المخزون')
+      setRestockItem(null)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل التزويد')
   })
 
   return (
@@ -152,17 +198,42 @@ function ItemsTab(): JSX.Element {
                 <th>التصنيف</th>
                 <th>المقاس</th>
                 <th className="text-left">السعر</th>
+                <th className="text-center">المخزون</th>
                 <th className="text-center">الحالة</th>
-                <th className="w-24"></th>
+                <th className="w-32"></th>
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => (
+              {items.map((it) => {
+                const tracks = !!it.tracks_stock
+                const isOut = tracks && it.stock_qty <= 0
+                const isLow = tracks && !isOut && it.stock_qty <= it.low_stock_threshold
+                return (
                 <tr key={it.id}>
                   <td className="font-semibold">{it.name_ar}</td>
                   <td>{it.category_name || <span className="text-ink-soft">—</span>}</td>
                   <td>{it.size || <span className="text-ink-soft">—</span>}</td>
                   <td className="text-left font-bold num">{fmtMoney(it.default_price)}</td>
+                  <td className="text-center">
+                    {!tracks ? (
+                      <span className="text-ink-soft text-xs">غير متتبَّع</span>
+                    ) : (
+                      <span
+                        className={cn(
+                          'chip num text-xs font-bold',
+                          isOut
+                            ? 'bg-red-50 text-bad'
+                            : isLow
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-emerald-50 text-emerald-700'
+                        )}
+                      >
+                        {it.stock_qty}
+                        {isLow && !isOut && ' ⚠'}
+                        {isOut && ' • نفد'}
+                      </span>
+                    )}
+                  </td>
                   <td className="text-center">
                     <span
                       className={cn(
@@ -174,6 +245,15 @@ function ItemsTab(): JSX.Element {
                     </span>
                   </td>
                   <td className="text-end">
+                    {tracks && (
+                      <button
+                        className="btn-ghost btn-sm text-brand-700 hover:bg-brand-50"
+                        onClick={() => openRestock(it)}
+                        title="تزويد المخزون"
+                      >
+                        <PackagePlus size={16} />
+                      </button>
+                    )}
                     <button className="btn-ghost btn-sm" onClick={() => openEdit(it)}>
                       <Pencil size={16} />
                     </button>
@@ -182,7 +262,8 @@ function ItemsTab(): JSX.Element {
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -242,7 +323,122 @@ function ItemsTab(): JSX.Element {
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="w-4 h-4" />
             <span className="text-sm font-semibold">نشط (يظهر في شاشة المعاملات)</span>
           </label>
+
+          <div className="border-t border-bg-subtle pt-3 mt-1">
+            <label className="flex items-center gap-2 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={tracksStock}
+                onChange={(e) => setTracksStock(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-semibold">تتبَّع المخزون لهذا الصنف</span>
+            </label>
+            <div className="text-xs text-ink-muted mr-6 mt-1">
+              فعِّلها للأصناف الملموسة (براويز، أقراص...). أبقِها مغلقة للخدمات (جلسات تصوير، تعديل...).
+            </div>
+            {tracksStock && (
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="label">الكمية الحالية</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="input num text-center"
+                    value={stockQty}
+                    onChange={(e) => setStockQty(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label">حد التنبيه</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="input num text-center"
+                    value={lowStock}
+                    onChange={(e) => setLowStock(e.target.value)}
+                  />
+                  <div className="text-[10px] text-ink-muted mt-1">
+                    تنبيه عند الوصول لهذه الكمية (0 = نبِّه فقط عند النفاد).
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+      </Dialog>
+
+      <Dialog
+        open={!!restockItem}
+        onClose={() => (restock.isPending ? null : setRestockItem(null))}
+        title={`تزويد المخزون — ${restockItem?.name_ar ?? ''}`}
+        size="sm"
+        footer={
+          <>
+            <button
+              className="btn-primary"
+              disabled={!restockQty || Number(restockQty) <= 0 || restock.isPending}
+              onClick={() => restock.mutate()}
+            >
+              <PackagePlus size={16} />
+              تأكيد التزويد
+            </button>
+            <button
+              className="btn-secondary"
+              disabled={restock.isPending}
+              onClick={() => setRestockItem(null)}
+            >
+              إلغاء
+            </button>
+          </>
+        }
+      >
+        {restockItem && (
+          <div className="space-y-3">
+            <div className="bg-bg-subtle rounded-xl p-3 flex justify-between text-sm">
+              <span className="text-ink-muted">المخزون الحالي</span>
+              <span className="num font-bold">{restockItem.stock_qty}</span>
+            </div>
+            <div>
+              <label className="label">الكمية المضافة *</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="input num text-center text-lg"
+                autoFocus
+                value={restockQty}
+                onChange={(e) => setRestockQty(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">التكلفة الإجمالية (اختياري)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  className="input num text-center"
+                  value={restockCost}
+                  onChange={(e) => setRestockCost(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">المورِّد (اختياري)</label>
+                <input
+                  className="input"
+                  value={restockSupplier}
+                  onChange={(e) => setRestockSupplier(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="text-xs text-ink-muted">
+              يضاف للمخزون فوراً، ويُسجَّل في صفحة المشتريات للرجوع إليه.
+            </div>
+          </div>
+        )}
       </Dialog>
 
       <ConfirmDialog
@@ -356,6 +552,165 @@ function CategoriesTab(): JSX.Element {
         message="هل تريد حذف هذا التصنيف؟ الأصناف المرتبطة ستبقى لكن بدون تصنيف."
         confirmText="حذف"
         destructive
+      />
+    </>
+  )
+}
+
+function StaffTab(): JSX.Element {
+  const qc = useQueryClient()
+  const { data: staff = [] } = useQuery({ queryKey: ['staff', 'all'], queryFn: () => api.staffList() })
+
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Staff | null>(null)
+  const [name, setName] = useState('')
+  const [active, setActive] = useState(true)
+  const [delId, setDelId] = useState<number | null>(null)
+
+  const openNew = (): void => {
+    setEditing(null)
+    setName('')
+    setActive(true)
+    setOpen(true)
+  }
+  const openEdit = (s: Staff): void => {
+    setEditing(s)
+    setName(s.name)
+    setActive(!!s.is_active)
+    setOpen(true)
+  }
+
+  const save = useMutation({
+    mutationFn: () =>
+      editing
+        ? api.staffUpdate(editing.id, { name, is_active: active ? 1 : 0 })
+        : api.staffCreate({ name, is_active: active ? 1 : 0 }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['staff'] })
+      qc.invalidateQueries({ queryKey: ['staff', 'all'] })
+      toast.success('تم الحفظ')
+      setOpen(false)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحفظ')
+  })
+
+  const del = useMutation({
+    mutationFn: (id: number) => api.staffDelete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['staff'] })
+      qc.invalidateQueries({ queryKey: ['staff', 'all'] })
+      toast.success('تم الحذف')
+    }
+  })
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-ink">الموظفون ({staff.length})</h3>
+        <button className="btn-primary btn-sm" onClick={openNew}>
+          <Plus size={16} />
+          موظف جديد
+        </button>
+      </div>
+      {staff.length === 0 ? (
+        <EmptyState
+          title="لا يوجد موظفون بعد"
+          hint="أضف الموظفين هنا لتختارهم من القائمة عند تسجيل أي معاملة بدلاً من كتابة الاسم في كل مرة."
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-bg-subtle">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>الاسم</th>
+                <th className="text-center">الحالة</th>
+                <th className="w-24"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s) => (
+                <tr key={s.id}>
+                  <td className="font-semibold">{s.name}</td>
+                  <td className="text-center">
+                    <span
+                      className={cn(
+                        'chip text-xs',
+                        s.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-bg-subtle text-ink-muted'
+                      )}
+                    >
+                      {s.is_active ? 'نشط' : 'مؤرشف'}
+                    </span>
+                  </td>
+                  <td className="text-end">
+                    <button className="btn-ghost btn-sm" onClick={() => openEdit(s)}>
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      className="btn-ghost btn-sm text-bad hover:bg-red-50"
+                      onClick={() => setDelId(s.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? 'تعديل موظف' : 'موظف جديد'}
+        size="sm"
+        footer={
+          <>
+            <button
+              className="btn-primary"
+              disabled={!name.trim() || save.isPending}
+              onClick={() => save.mutate()}
+            >
+              <Save size={16} />
+              حفظ
+            </button>
+            <button className="btn-secondary" onClick={() => setOpen(false)}>إلغاء</button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="label">اسم الموظف *</label>
+            <input
+              className="input"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <label className="flex items-center gap-2 select-none cursor-pointer">
+            <input
+              type="checkbox"
+              checked={active}
+              onChange={(e) => setActive(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span className="text-sm font-semibold">نشط (يظهر في قائمة المعاملات)</span>
+          </label>
+        </div>
+      </Dialog>
+
+      <ConfirmDialog
+        open={delId !== null}
+        onClose={() => setDelId(null)}
+        title="حذف موظف"
+        message="هل تريد حذف هذا الموظف؟ المعاملات السابقة تحتفظ بالاسم كنص."
+        confirmText="حذف"
+        destructive
+        onConfirm={() => {
+          if (delId !== null) del.mutate(delId)
+          setDelId(null)
+        }}
       />
     </>
   )

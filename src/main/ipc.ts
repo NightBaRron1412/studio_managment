@@ -7,6 +7,7 @@ import { closeDb, getDbPath, initDb } from './db'
 import { ClientsRepo } from './repos/clients'
 import { CategoriesRepo } from './repos/categories'
 import { ItemsRepo } from './repos/items'
+import { StaffRepo } from './repos/staff'
 import { TransactionsRepo } from './repos/transactions'
 import { WithdrawalsRepo } from './repos/withdrawals'
 import { RentRepo } from './repos/rent'
@@ -139,6 +140,14 @@ export function registerIpc(): void {
   ipcMain.handle('item:create', safe((input: any) => ItemsRepo.create(input)))
   ipcMain.handle('item:update', safe((id: number, input: any) => ItemsRepo.update(id, input)))
   ipcMain.handle('item:delete', safe((id: number) => ItemsRepo.delete(id)))
+  ipcMain.handle('items:lowStock', safe(() => ItemsRepo.lowStock()))
+  ipcMain.handle('item:restock', safe((input: any) => ItemsRepo.restock(input)))
+
+  // Staff
+  ipcMain.handle('staff:list', safe((opts?: any) => StaffRepo.list(opts)))
+  ipcMain.handle('staff:create', safe((input: any) => StaffRepo.create(input)))
+  ipcMain.handle('staff:update', safe((id: number, input: any) => StaffRepo.update(id, input)))
+  ipcMain.handle('staff:delete', safe((id: number) => StaffRepo.delete(id)))
 
   // Transactions
   ipcMain.handle('transactions:list', safe((filter?: any) => TransactionsRepo.list(filter)))

@@ -56,7 +56,11 @@ export function ItemPicker({ open, onClose, onPick }: Props): JSX.Element {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[55vh] overflow-y-auto -mx-1 px-1">
-        {filtered.map((it) => (
+        {filtered.map((it) => {
+          const tracks = !!it.tracks_stock
+          const isOut = tracks && it.stock_qty <= 0
+          const isLow = tracks && !isOut && it.stock_qty <= it.low_stock_threshold
+          return (
           <button
             key={it.id}
             className="text-right p-3 rounded-xl border border-bg-subtle hover:border-brand-300 hover:bg-brand-50/30 transition"
@@ -72,11 +76,21 @@ export function ItemPicker({ open, onClose, onPick }: Props): JSX.Element {
                   {it.category_name || 'بدون تصنيف'}
                   {it.size ? ` • ${it.size}` : ''}
                 </div>
+                {tracks && (
+                  <div
+                    className={`text-[11px] font-bold mt-1 num ${
+                      isOut ? 'text-bad' : isLow ? 'text-amber-700' : 'text-emerald-700'
+                    }`}
+                  >
+                    {isOut ? 'نفد المخزون' : `المتوفر: ${it.stock_qty}${isLow ? ' ⚠' : ''}`}
+                  </div>
+                )}
               </div>
               <div className="font-bold text-brand-700 num shrink-0">{fmtMoney(it.default_price)}</div>
             </div>
           </button>
-        ))}
+          )
+        })}
         {filtered.length === 0 && (
           <div className="col-span-full text-center py-10 text-ink-muted">
             لا توجد أصناف. يمكنك إضافتها من الإعدادات.
