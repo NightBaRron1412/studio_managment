@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.0.6] — 2026-04-20
+
+### Added
+- 📦 **Portable `.zip` build** alongside the NSIS installer — extract anywhere and run `StudioManager.exe`. Avoids browser "virus detected" false positives that hit unsigned `.exe` downloads.
+- 🔏 **Code signing** for the Windows installer using a self-signed certificate (via `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` GitHub Secrets), so the installer no longer shows "Unknown publisher".
+
+### Changed
+- CI workflow `build-windows.yml` wires `CSC_LINK` + `CSC_KEY_PASSWORD` env vars and uploads `.zip` artifacts on non-tag builds.
+
+---
+
 ## [1.0.5] — 2026-04-19
 
 ### Added
