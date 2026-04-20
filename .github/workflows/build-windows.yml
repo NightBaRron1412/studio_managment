@@ -47,7 +47,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --x64 --publish always
 
-      - name: Upload installer as artifact
+      - name: Upload installer as artifact (non-tag builds only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: studio-manager-windows-installer
@@ -57,13 +58,6 @@ jobs:
             dist-installer/latest.yml
           retention-days: 90
           if-no-files-found: error
-
-      - name: Attach installer to GitHub Release (only on tag push)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist-installer/*.exe
-            dist-installer/*.exe.blockmap
-            dist-installer/latest.yml
-          generate_release_notes: true
+      # Note: on tag pushes, electron-builder's --publish always already uploads
+      # to the GitHub Release. We do NOT add another upload step here, which is
+      # what caused the duplicate "studio-manager-setup-..." files in v1.0.0.
