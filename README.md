@@ -138,17 +138,36 @@ This app is **purpose-built for photography studios**, **fully Arabic with prope
 
 ### For end users (studio owners)
 
+Each release ships **two downloads** — pick the one that fits:
+
+| Download | When to use | Auto-update? | Browser warning? |
+|---|---|---|---|
+| `*-Setup-x.x.x.exe` (NSIS installer) | **Recommended.** Normal install with Start Menu + Desktop shortcuts. | ✅ Yes (in-app) | Sometimes — see below |
+| `*-x.x.x-win.zip` (portable) | If the `.exe` is blocked by Chrome/Edge ("virus detected") or you want a no-install version on a USB stick. | ❌ No (manual download per release) | None |
+
+#### Installer (.exe) — the normal path
+
 1. Go to the [latest release](https://github.com/NightBaRron1412/studio_managment/releases/latest).
-2. Download `نظام إدارة مبيعات الاستوديو Setup x.x.x.exe` (or `studio-manager-setup-x.x.x.exe`).
-3. Double-click. Windows may show "Windows protected your PC" → click **More info** → **Run anyway** (the app is unsigned but safe).
-4. The installer creates a desktop shortcut and Start Menu entry.
-5. On first launch, the **onboarding wizard** asks for business name, owner, phone, currency, and default rent — done!
+2. Download `...-Setup-x.x.x.exe`.
+3. If the browser blocks it as "virus detected", switch to the **portable .zip** below — the installer is signed but new releases need time to build SmartScreen reputation.
+4. Double-click. Windows may show "Windows protected your PC" → **More info** → **Run anyway**.
+5. Creates a desktop shortcut + Start Menu entry.
+6. On first launch, the **onboarding wizard** asks for business name, owner, phone, currency, and default rent — done!
+
+#### Portable (.zip) — fallback / USB version
+
+1. Download `...-win.zip` from the same release page.
+2. Extract anywhere (Desktop, USB drive, `C:\StudioManager\`, etc.).
+3. Double-click `StudioManager.exe` inside the extracted folder.
+4. **Note:** portable users must **manually download new versions** from GitHub. The in-app updater only works for the installed (.exe) version.
 
 📖 **Arabic step-by-step:** [INSTALL_AR.md](INSTALL_AR.md)
 
 ### Updates
 
-Once installed, the app **checks for updates from inside Settings → فحص التحديثات** with a one-click download + install. No need to redownload from GitHub.
+Installed via the `.exe`? The app **checks for updates from inside Settings → فحص التحديثات** with a one-click download + install. No need to redownload from GitHub.
+
+Using the portable `.zip`? Re-download the latest zip and replace the folder.
 
 ---
 
