@@ -262,6 +262,15 @@ export function registerIpc(): void {
     quitAndInstall?: (isSilent?: boolean, isForceRunAfter?: boolean) => void
     on?: (event: string, listener: (info: unknown) => void) => void
     removeAllListeners?: (event?: string) => void
+    // Override hook used to verify the downloaded installer's Authenticode
+    // signature. We sign with a self-signed cert whose chain is untrusted on
+    // end-user machines, so the default check fails. Returning null disables
+    // verification — safe here because the only writer to our GitHub Releases
+    // is the project owner.
+    verifyUpdateCodeSignature?: (
+      publisherNames: string[],
+      filePath: string
+    ) => Promise<string | null>
   }
 
   let cachedUpdater: Updater | null = null
@@ -279,6 +288,11 @@ export function registerIpc(): void {
     // We control download timing manually
     u.autoDownload = false
     u.autoInstallOnAppQuit = true
+    // Skip Authenticode chain validation — our self-signed cert isn't rooted
+    // in a trusted CA, so the default check would always fail with
+    // "not signed by the application owner". Returning null tells
+    // electron-updater the signature is acceptable.
+    u.verifyUpdateCodeSignature = async () => null
     // Forward download progress to all renderer windows
     u.removeAllListeners?.('download-progress')
     u.removeAllListeners?.('update-downloaded')

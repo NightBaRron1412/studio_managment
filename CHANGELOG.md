@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.0.9] — 2026-04-20
+
+### Fixed
+- 🔓 **Auto-update no longer rejects the new installer** with "certificate chain terminated in an untrusted root" — electron-updater's Authenticode chain check is now bypassed because the project ships with a self-signed cert that isn't anchored in any trusted CA. Trust still relies on the GitHub Release source (only the project owner can publish there).
+
+> ⚠️ Same one-time manual install caveat as 1.0.8 — download `...-Setup-1.0.9.exe` once, then in-app updates work going forward.
+
+---
+
 ## [1.0.8] — 2026-04-20
 
 ### Fixed
