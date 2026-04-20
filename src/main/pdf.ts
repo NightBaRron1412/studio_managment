@@ -122,10 +122,46 @@ export async function exportReceiptPDF(
       h(View, { key: 'hr', style: styles.hr }),
       h(View, { key: 'th', style: styles.row }, headerCells),
       ...lineRows,
-      h(View, { key: 'tot', style: styles.totalRow }, [
-        h(View, { key: 'tla', style: { flex: 5, textAlign: 'right' } }, h(Text, null, 'الإجمالي')),
-        h(View, { key: 'tlb', style: { flex: 1, textAlign: 'left' } }, h(Text, null, fmt(tx.total, currency)))
+      h(View, { key: 'sub', style: { flexDirection: 'row-reverse', marginTop: 12, paddingTop: 6, borderTop: '1px solid #ccc' } }, [
+        h(View, { key: 'a', style: { flex: 5, textAlign: 'right' } }, h(Text, null, 'المجموع الفرعي')),
+        h(View, { key: 'b', style: { flex: 1, textAlign: 'left' } }, h(Text, null, fmt(tx.subtotal, currency)))
       ]),
+      tx.discount_amount > 0
+        ? h(View, { key: 'disc', style: { flexDirection: 'row-reverse', paddingVertical: 2 } }, [
+            h(
+              View,
+              { key: 'a', style: { flex: 5, textAlign: 'right' } },
+              h(
+                Text,
+                null,
+                tx.discount_type === 'percent'
+                  ? `الخصم (${tx.discount_value}%)`
+                  : 'الخصم'
+              )
+            ),
+            h(View, { key: 'b', style: { flex: 1, textAlign: 'left' } }, h(Text, null, `- ${fmt(tx.discount_amount, currency)}`))
+          ])
+        : null,
+      tx.vat_amount > 0
+        ? h(View, { key: 'vat', style: { flexDirection: 'row-reverse', paddingVertical: 2 } }, [
+            h(View, { key: 'a', style: { flex: 5, textAlign: 'right' } }, h(Text, null, `ضريبة القيمة المضافة (${tx.vat_percent}%)`)),
+            h(View, { key: 'b', style: { flex: 1, textAlign: 'left' } }, h(Text, null, fmt(tx.vat_amount, currency)))
+          ])
+        : null,
+      h(View, { key: 'tot', style: styles.totalRow }, [
+        h(View, { key: 'tla', style: { flex: 5, textAlign: 'right', fontWeight: 700 } }, h(Text, null, 'الإجمالي')),
+        h(View, { key: 'tlb', style: { flex: 1, textAlign: 'left', fontWeight: 700 } }, h(Text, null, fmt(tx.total, currency)))
+      ]),
+      h(View, { key: 'paid', style: { flexDirection: 'row-reverse', paddingVertical: 2, marginTop: 4 } }, [
+        h(View, { key: 'a', style: { flex: 5, textAlign: 'right' } }, h(Text, null, 'المدفوع')),
+        h(View, { key: 'b', style: { flex: 1, textAlign: 'left' } }, h(Text, null, fmt(tx.paid_amount, currency)))
+      ]),
+      tx.total - tx.paid_amount > 0.001
+        ? h(View, { key: 'rem', style: { flexDirection: 'row-reverse', paddingVertical: 2 } }, [
+            h(View, { key: 'a', style: { flex: 5, textAlign: 'right', color: '#b91c1c' } }, h(Text, null, 'المتبقي (آجل)')),
+            h(View, { key: 'b', style: { flex: 1, textAlign: 'left', color: '#b91c1c' } }, h(Text, null, fmt(tx.total - tx.paid_amount, currency)))
+          ])
+        : null,
       tx.notes ? h(Text, { key: 'no', style: { ...styles.small, marginTop: 12 } }, `ملاحظات: ${tx.notes}`) : null,
       h(Text, { key: 'th2', style: { ...styles.small, marginTop: 18, textAlign: 'center' } }, 'شكراً لتعاملكم معنا'),
       h(Text, { key: 'cr', style: { fontSize: 8, color: '#999', marginTop: 8, textAlign: 'center' } }, 'برنامج إدارة الاستوديو — تطوير: أمير شتية')

@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.0.7] — 2026-04-20
+
+### Fixed
+- 🧾 **Receipt PDF now shows the full price breakdown** — previously only the final total was printed. The receipt now lists: subtotal, discount (with % when applicable), VAT, total, paid amount, and remaining balance (آجل) — each row rendered only when relevant.
+
+---
+
 ## [1.0.6] — 2026-04-20
 
 ### Added
