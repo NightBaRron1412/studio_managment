@@ -63,13 +63,13 @@ export function TopBar({
       <div className="flex items-center gap-2">
         <button
           onClick={onOpenSpotlight}
-          title="بحث ذكي"
-          className="hidden md:flex items-center gap-2 w-64 h-9 px-3 rounded-xl bg-bg-subtle border border-bg-subtle hover:border-brand-300 hover:bg-bg-card transition text-sm text-ink-muted"
+          title="بحث ذكي (Ctrl+K)"
+          className="hidden md:flex items-center gap-2 w-72 h-9 px-3 rounded-xl bg-bg-subtle border border-bg-subtle hover:border-brand-300 hover:bg-bg-card transition text-sm text-ink-muted whitespace-nowrap"
         >
           <Search size={16} className="shrink-0" />
-          <span className="flex-1 text-right">ابحث في المعاملات والعملاء...</span>
-          <kbd className="text-[10px] bg-bg-card text-ink-muted border border-bg-subtle rounded px-1.5 py-0.5 num font-bold">
-            Ctrl K
+          <span className="flex-1 text-right truncate">ابحث في كل شيء...</span>
+          <kbd className="shrink-0 text-[10px] bg-bg-card text-ink-muted border border-bg-subtle rounded px-1.5 py-0.5 num font-bold">
+            Ctrl+K
           </kbd>
         </button>
         <button

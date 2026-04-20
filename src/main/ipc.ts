@@ -36,6 +36,14 @@ function hashPin(pin: string): string {
   return createHash('sha256').update(pin.trim()).digest('hex')
 }
 
+// Build a unique PDF path inside the OS temp dir. The timestamp suffix means
+// the file never collides with a previously-opened receipt PDF (which on
+// Windows would lock the file and cause EBUSY on the next write).
+function uniqueTempPdf(stem: string): string {
+  const stamp = Date.now().toString(36)
+  return join(app.getPath('temp'), `${stem}-${stamp}.pdf`)
+}
+
 // Linux-friendly URL opener. shell.openExternal lies on Linux (resolves
 // successfully even when nothing happens). On Linux we try xdg-open first,
 // then fall back to popular browser binaries directly. On macOS/Windows we
@@ -409,7 +417,9 @@ export function registerIpc(): void {
       const tx = TransactionsRepo.get(id)
       if (!tx) throw new Error('المعاملة غير موجودة')
       const settings = SettingsRepo.all()
-      const tmpPath = join(app.getPath('temp'), `receipt-${tx.transaction_no}.pdf`)
+      // Always use a unique filename: avoids EBUSY when the previous PDF is
+      // still open in the user's PDF viewer (very common on Windows).
+      const tmpPath = uniqueTempPdf(`receipt-${tx.transaction_no}`)
       await exportReceiptPDF(tmpPath, tx, settings)
       const res = await dialog.showSaveDialog(win!, {
         title: 'حفظ الفاتورة PDF',
@@ -420,7 +430,15 @@ export function registerIpc(): void {
         shell.openPath(tmpPath)
         return { path: tmpPath }
       }
-      copyFileSync(tmpPath, res.filePath)
+      try {
+        copyFileSync(tmpPath, res.filePath)
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code
+        if (code === 'EBUSY' || code === 'EPERM') {
+          throw new Error('الملف مفتوح في برنامج آخر. أغلقه ثم حاول مرة أخرى.')
+        }
+        throw e
+      }
       shell.showItemInFolder(res.filePath)
       return { path: res.filePath }
     })
@@ -459,7 +477,7 @@ export function registerIpc(): void {
         // ignore
       }
       const opened = await openUrlRobust(url)
-      const tmpPath = join(app.getPath('temp'), `receipt-${tx.transaction_no}.pdf`)
+      const tmpPath = uniqueTempPdf(`receipt-${tx.transaction_no}`)
       exportReceiptPDF(tmpPath, tx, settings)
         .then(() => {
           shell.openPath(tmpPath).catch(() => {})
