@@ -2,7 +2,8 @@
 // Loaded via dynamic import because @react-pdf/renderer is ESM-only and the
 // main process is bundled as CommonJS.
 import { createElement as h } from 'react'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { extname } from 'node:path'
 import type { TransactionWithLines, ReportSummary, ReportFilters } from '@shared/types'
 
 let pdfModPromise: Promise<typeof import('@react-pdf/renderer')> | null = null
@@ -64,7 +65,25 @@ export async function exportReceiptPDF(
   const business = settings.business_name ?? 'نظام إدارة الاستوديو'
   const phone = settings.phone ?? ''
   const address = settings.address ?? ''
-  const logoPath = settings.logo_path && existsSync(settings.logo_path) ? settings.logo_path : null
+
+  // Load the logo as a Buffer. Passing a raw file path to @react-pdf/renderer
+  // is unreliable across OSes (especially Windows backslashes); a Buffer always
+  // works. If anything fails, we skip the logo entirely instead of leaving
+  // a blank rectangle on the page.
+  let logoSrc: { data: Buffer; format: 'png' | 'jpg' } | null = null
+  try {
+    if (settings.logo_path && existsSync(settings.logo_path)) {
+      const ext = extname(settings.logo_path).toLowerCase()
+      const fmt: 'png' | 'jpg' | null =
+        ext === '.png' ? 'png' : ext === '.jpg' || ext === '.jpeg' ? 'jpg' : null
+      if (fmt) {
+        logoSrc = { data: readFileSync(settings.logo_path), format: fmt }
+      }
+    }
+  } catch (e) {
+    console.warn('logo load failed:', e instanceof Error ? e.message : e)
+    logoSrc = null
+  }
 
   const headerCells = [
     h(View, { key: 'h1', style: { ...styles.cellHead, flex: 3, textAlign: 'right' } }, h(Text, null, 'الصنف')),
@@ -84,8 +103,15 @@ export async function exportReceiptPDF(
 
   const doc = h(Document, null,
     h(Page, { size: 'A5', style: styles.page }, [
-      logoPath
-        ? h(View, { key: 'logo', style: { alignItems: 'center', marginBottom: 6 } }, h(Image, { src: logoPath, style: { width: 72, height: 72, objectFit: 'contain' } } as any))
+      logoSrc
+        ? h(
+            View,
+            { key: 'logo', style: { alignItems: 'center', marginBottom: 6 } },
+            h(Image, {
+              src: logoSrc as never,
+              style: { width: 72, height: 72, objectFit: 'contain' as never }
+            })
+          )
         : null,
       h(Text, { key: 'h', style: styles.header }, business),
       h(Text, { key: 's', style: styles.sub }, `${address ? address + ' • ' : ''}${phone}`),
