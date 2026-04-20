@@ -1,0 +1,118 @@
+# Changelog
+
+All notable changes to **نظام إدارة مبيعات الاستوديو** are documented here.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
+
+---
+
+## [1.0.5] — 2026-04-19
+
+### Added
+- 🚀 **Splash screen** on app launch (frameless transparent window with logo + animated loader)
+- 🔄 **Full auto-update flow** — Settings → فحص التحديثات now offers download (with **live progress bar**) and one-click install
+- IPC events: `update:progress`, `update:downloaded`, `update:error` forwarded to renderer
+
+### Changed
+- 🎨 **Icon redesigned** with layered solid colors that ImageMagick renders correctly (the previous "fancy" SVG silently lost gradients/filters and came out all black)
+
+### Fixed
+- electron-updater wired to expose download/install (previously only checked)
+
+---
+
+## [1.0.4] — 2026-04-19
+
+### Added
+- 🧹 **System reset** in Settings → الحماية → المنطقة الخطرة
+  - **مسح كل السجلات**: clears transactions/clients/money movements but keeps items + settings
+  - **إعادة ضبط المصنع**: full wipe; onboarding wizard re-appears; auto-relaunches
+  - Both gated by typing the word "حذف" to confirm
+- 🎨 Fancier app icon (squircle, Islamic-pattern background, refined camera + lens)
+
+### Changed
+- `releaseType: "release"` added to publish config so future builds **publish immediately** (not as drafts)
+- Retroactively published v1.0.1, v1.0.2, v1.0.3 from drafts
+
+---
+
+## [1.0.3] — 2026-04-19
+
+### Fixed
+- 🔢 PIN dots now fill **left → right** (added `dir="ltr"` to the dot row)
+- 📱 WhatsApp share now **reveals the PDF in File Explorer** so the user can drag it directly into the chat (wa.me URLs don't support file pre-attach)
+- Updated toast: "فُتحت واتساب — اسحب ملف PDF من النافذة المفتوحة إلى المحادثة"
+
+---
+
+## [1.0.2] — 2026-04-19
+
+### Fixed
+- 🖼️ **Logo on PDF receipts** — was showing as blank space because @react-pdf/renderer's `Image` component is unreliable with file path strings (especially Windows backslashes). Now reads the PNG into a Node `Buffer` and passes `{ data, format: 'png' }` to the Image — works identically across OSes.
+
+---
+
+## [1.0.1] — 2026-04-19
+
+### Fixed
+- 🪟 **Windows EBUSY** when generating PDFs — receipts now use unique timestamped filenames in temp so reopens don't collide with files held by the user's PDF viewer
+- Friendly Arabic error if the destination is locked: "الملف مفتوح في برنامج آخر. أغلقه ثم حاول مرة أخرى."
+
+---
+
+## [1.0.0] — 2026-04-19
+
+### Initial release 🎉
+
+A complete photography studio management system in Arabic.
+
+**Sales & Customers**
+- Multi-line transactions with predefined or custom items
+- Discount (% or fixed) and optional VAT
+- Partial payments (آجل) with debtors page and mark-as-paid
+- Full client directory with purchase history, total spent, smart per-client suggestions
+- Duplicate any past transaction in one click
+- Multiple payment methods (cash, card, transfer, wallet, credit)
+
+**Schedule & Operations**
+- Bookings calendar (sessions with type, deposit, status)
+- Pickup tracking (pending/ready/delivered) with overdue alerts
+- Reminders with due dates and dashboard alerts
+- End-of-day cash close with expected vs actual + history
+
+**Money Out**
+- Cash withdrawals
+- Monthly rent with partial payments
+- Inventory/supplies purchases
+
+**Reports**
+- Date range filters, by-day chart, by-item, by-category, by-payment-method
+- PDF and Excel export
+- Dashboard tiles: net month, weekly trend, active clients, top items
+
+**Safety**
+- Manual + automatic backups (keeps last 7)
+- Full restore from any `.db` file
+- Soft delete + recycle bin (سلة المحذوفات)
+- Optional 4–8 digit PIN lock
+- 4-step onboarding wizard on first launch
+
+**Polish**
+- 100% Arabic UI with Cairo font + RTL throughout
+- Dark mode + privacy mode (blur amounts)
+- Ctrl+K spotlight search
+- Studio logo on receipt PDFs
+- WhatsApp share with prefilled receipt summary
+- Auto-update infrastructure (electron-updater + GitHub releases)
+- Windows NSIS installer with desktop shortcut + Start Menu entry
+
+### Tech stack
+Electron 32, React 18, TypeScript 5, Vite 5, Tailwind CSS 3, better-sqlite3 11, TanStack Query 5, @react-pdf/renderer 4, exceljs 4, Recharts 2, electron-builder 25, electron-vite 2, electron-updater 6.
+
+---
+
+[1.0.5]: https://github.com/NightBaRron1412/studio_managment/releases/tag/v1.0.5
+[1.0.4]: https://github.com/NightBaRron1412/studio_managment/releases/tag/v1.0.4
+[1.0.3]: https://github.com/NightBaRron1412/studio_managment/releases/tag/v1.0.3
+[1.0.2]: https://github.com/NightBaRron1412/studio_managment/releases/tag/v1.0.2
+[1.0.1]: https://github.com/NightBaRron1412/studio_managment/releases/tag/v1.0.1
+[1.0.0]: https://github.com/NightBaRron1412/studio_managment/releases/tag/v1.0.0
