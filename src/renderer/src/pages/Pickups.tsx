@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { fmtMoney, fmtDateShort } from '@/lib/format'
-import { Package, CheckCircle2, Clock, MessageCircle, AlertTriangle } from 'lucide-react'
+import { Package, CheckCircle2, Clock, MessageCircle, AlertTriangle, Wallet } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Dialog } from '@/components/ui/Dialog'
 import { toast } from '@/store/toast'
 import { cn } from '@/lib/cn'
+import type { Transaction } from '@shared/types'
 
 export function Pickups(): JSX.Element {
   const nav = useNavigate()
@@ -29,6 +32,49 @@ export function Pickups(): JSX.Element {
       toast.success('تم التحديث')
     }
   })
+
+  // When delivering, intercept if there's an unpaid balance so the owner is
+  // reminded to collect it. The dialog lets them either record a payment
+  // (then deliver) or deliver as-is and leave the remainder on the client's tab.
+  const [unpaidTx, setUnpaidTx] = useState<Transaction | null>(null)
+  const [payAmount, setPayAmount] = useState('')
+
+  const remaining = unpaidTx ? Math.max(0, unpaidTx.total - unpaidTx.paid_amount) : 0
+
+  const closeUnpaid = (): void => {
+    setUnpaidTx(null)
+    setPayAmount('')
+  }
+
+  const payAndDeliver = useMutation({
+    mutationFn: async () => {
+      if (!unpaidTx) return
+      const amt = Number(payAmount) || 0
+      if (amt > 0) {
+        await api.transactionMarkPaid(unpaidTx.id, amt)
+      }
+      await api.transactionMarkPickup(unpaidTx.id, 'delivered')
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pickups'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['debtors'] })
+      toast.success(Number(payAmount) > 0 ? 'تم تسجيل الدفعة وتسليم الطلب' : 'تم تسليم الطلب')
+      closeUnpaid()
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحفظ')
+  })
+
+  const handleDeliverClick = (t: Transaction): void => {
+    const rem = Math.max(0, t.total - t.paid_amount)
+    if (rem > 0.001) {
+      setUnpaidTx(t)
+      setPayAmount(rem.toFixed(2))
+    } else {
+      setStatus.mutate({ id: t.id, status: 'delivered' })
+    }
+  }
 
   const wa = useMutation({
     mutationFn: (id: number) => api.whatsappShareTransaction(id),
@@ -129,7 +175,7 @@ export function Pickups(): JSX.Element {
                       )}
                       <button
                         className="btn-primary btn-sm"
-                        onClick={() => setStatus.mutate({ id: t.id, status: 'delivered' })}
+                        onClick={() => handleDeliverClick(t)}
                         title="تم التسليم"
                       >
                         <CheckCircle2 size={14} />
@@ -143,6 +189,79 @@ export function Pickups(): JSX.Element {
           </table>
         </div>
       )}
+
+      <Dialog
+        open={!!unpaidTx}
+        onClose={() => (payAndDeliver.isPending ? null : closeUnpaid())}
+        title="الطلب لم يُسدَّد بالكامل"
+        size="sm"
+        footer={
+          <>
+            <button
+              className="btn-primary"
+              disabled={payAndDeliver.isPending}
+              onClick={() => payAndDeliver.mutate()}
+            >
+              <Wallet size={14} />
+              {Number(payAmount) > 0 ? 'تسجيل الدفعة وتسليم' : 'تسليم بدون دفع'}
+            </button>
+            <button
+              className="btn-secondary"
+              disabled={payAndDeliver.isPending}
+              onClick={closeUnpaid}
+            >
+              إلغاء
+            </button>
+          </>
+        }
+      >
+        {unpaidTx && (
+          <div className="space-y-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-900">
+              <div className="font-bold mb-1">⚠️ يوجد مبلغ متبقّي على هذا الطلب</div>
+              <div>
+                ذكِّر العميل <span className="font-bold">{unpaidTx.client_name || '—'}</span> بسداد المتبقّي قبل تسليم الطلب.
+              </div>
+            </div>
+
+            <div className="bg-bg-subtle rounded-xl p-3 space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-muted">فاتورة</span>
+                <span className="num font-bold">{unpaidTx.transaction_no}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-muted">إجمالي الفاتورة</span>
+                <span className="num font-bold">{fmtMoney(unpaidTx.total)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-muted">المدفوع سابقاً</span>
+                <span className="num font-bold text-good">{fmtMoney(unpaidTx.paid_amount)}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-bg pt-2 mt-2">
+                <span className="text-ink-muted">الباقي</span>
+                <span className="num font-bold text-warn">{fmtMoney(remaining)}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="label">المبلغ المستلم الآن</label>
+              <input
+                type="number"
+                min="0"
+                max={remaining}
+                step="0.5"
+                className="input num text-center text-lg"
+                autoFocus
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+              />
+              <div className="text-xs text-ink-muted mt-1">
+                اتركه <span className="num">0</span> لتسليم الطلب وترك المتبقّي على العميل (آجل).
+              </div>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </>
   )
 }

@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.0.10] — 2026-04-20
+
+### Added
+- 💰 **Unpaid-on-delivery prompt** — when marking a طلب قيد التسليم as تسليم, if the order still has an unpaid balance the app now opens a dialog reminding you to collect from the client. The dialog shows total/paid/remaining, lets you record the payment in one click (defaulted to the remaining amount), and then marks the order as delivered. You can also choose **تسليم بدون دفع** to deliver as-is and leave the remainder on the client's tab (آجل).
+
+---
+
 ## [1.0.9] — 2026-04-20
 
 ### Fixed
