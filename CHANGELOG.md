@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.0.8] — 2026-04-20
+
+### Fixed
+- 🔏 **Auto-update signature check** — explicitly set `publisherName: "Studio Manager"` in the build config so electron-updater's signature verification compares against a stable, deterministic value instead of auto-detecting from the certificate (which intermittently failed with "not signed by the application owner" on self-signed certs).
+
+> ⚠️ **Manual install required this once.** The currently installed v1.0.6/v1.0.7 cannot accept this update via the in-app updater (its baseline publisher was auto-detected). Download `...-Setup-1.0.8.exe` from the [GitHub release](https://github.com/NightBaRron1412/studio_managment/releases/latest) and run it once. From v1.0.8 onward, in-app auto-updates will work normally.
+
+---
+
 ## [1.0.7] — 2026-04-20
 
 ### Fixed
