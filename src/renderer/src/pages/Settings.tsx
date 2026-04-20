@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { fmtMoney } from '@/lib/format'
-import { Plus, Pencil, Trash2, Save, Database, Tag, Package, Building, Download, Upload, Info, Mail, Phone, Heart, Camera, Image as ImageIcon, Lock, Unlock, FileSpreadsheet, RefreshCw } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, Database, Tag, Package, Building, Download, Upload, Info, Mail, Phone, Heart, Camera, Image as ImageIcon, Lock, Unlock, FileSpreadsheet, RefreshCw, AlertTriangle, Eraser, Bomb } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
@@ -649,6 +649,152 @@ function SecurityTab(): JSX.Element {
           </div>
         )}
       </div>
+
+      <DangerZone />
+    </div>
+  )
+}
+
+function DangerZone(): JSX.Element {
+  const [open, setOpen] = useState<null | 'data' | 'all'>(null)
+  const [confirmText, setConfirmText] = useState('')
+  const PHRASE = 'حذف'
+
+  const reset = useMutation({
+    mutationFn: async () => {
+      if (open === 'data') return api.systemResetData()
+      if (open === 'all') return api.systemResetAll()
+    },
+    onSuccess: () => {
+      setOpen(null)
+      setConfirmText('')
+      if (open === 'data') {
+        toast.success('تم مسح السجلات')
+      }
+      // 'all' triggers an app relaunch from the main process — no UI follow-up
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'فشلت العملية')
+  })
+
+  return (
+    <div className="card p-5 border-2 border-red-200 dark:border-red-500/30 bg-red-50/30 dark:bg-red-500/5">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertTriangle size={18} className="text-bad" />
+        <h3 className="font-bold text-bad">المنطقة الخطرة</h3>
+      </div>
+      <p className="text-sm text-ink-muted mb-4 leading-relaxed">
+        العمليات هنا لا يمكن التراجع عنها. اعمل نسخة احتياطية قبل أي إعادة ضبط.
+      </p>
+
+      <div className="space-y-3">
+        <div className="card p-4 bg-bg-card">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <div className="font-bold text-ink flex items-center gap-2">
+                <Eraser size={16} />
+                مسح كل السجلات
+              </div>
+              <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                يحذف جميع المعاملات، العملاء، السحوبات، الإيجار، المشتريات، الحجوزات، والتذكيرات.
+                <br />
+                يحتفظ بالأصناف والأسعار وبيانات المحل.
+              </p>
+            </div>
+            <button
+              className="btn-danger btn-sm shrink-0"
+              onClick={() => {
+                setConfirmText('')
+                setOpen('data')
+              }}
+            >
+              <Eraser size={14} />
+              مسح
+            </button>
+          </div>
+        </div>
+
+        <div className="card p-4 bg-bg-card">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <div className="font-bold text-ink flex items-center gap-2">
+                <Bomb size={16} />
+                إعادة ضبط المصنع
+              </div>
+              <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                يحذف <span className="font-bold">كل شيء</span> ويعيد البرنامج لحالته الأولى.
+                ستظهر شاشة الإعداد الأول من جديد. سيُعاد تشغيل البرنامج تلقائياً.
+              </p>
+            </div>
+            <button
+              className="btn-danger btn-sm shrink-0"
+              onClick={() => {
+                setConfirmText('')
+                setOpen('all')
+              }}
+            >
+              <Bomb size={14} />
+              ضبط مصنع
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <Dialog
+        open={open !== null}
+        onClose={() => {
+          setOpen(null)
+          setConfirmText('')
+        }}
+        title={open === 'all' ? 'إعادة ضبط المصنع' : 'مسح كل السجلات'}
+        size="sm"
+        footer={
+          <>
+            <button
+              className="btn-danger"
+              disabled={confirmText.trim() !== PHRASE || reset.isPending}
+              onClick={() => reset.mutate()}
+            >
+              {reset.isPending ? 'جارٍ التنفيذ...' : open === 'all' ? 'تأكيد ضبط المصنع' : 'تأكيد المسح'}
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setOpen(null)
+                setConfirmText('')
+              }}
+            >
+              إلغاء
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 bg-amber-50 text-amber-800 rounded-xl p-3 text-sm">
+            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold mb-1">
+                {open === 'all'
+                  ? 'سيتم حذف كل البيانات والإعدادات نهائياً.'
+                  : 'سيتم حذف جميع السجلات نهائياً.'}
+              </div>
+              <div className="text-xs leading-relaxed">
+                لا يمكن التراجع عن هذه العملية. تأكد أن لديك نسخة احتياطية حديثة من زر "نسخ احتياطي" بالأعلى.
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="label">
+              للمتابعة، اكتب كلمة <span className="num font-bold text-bad">«{PHRASE}»</span> في المربع
+            </label>
+            <input
+              autoFocus
+              className="input text-center text-xl"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+            />
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
 }

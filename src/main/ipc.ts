@@ -17,6 +17,8 @@ import { CashCloseRepo } from './repos/cashClose'
 import { RecycleRepo } from './repos/recycle'
 import { BookingsRepo } from './repos/bookings'
 import { RemindersRepo } from './repos/reminders'
+import { SystemRepo } from './repos/system'
+import { getDb } from './db'
 import { exportReportPDF, exportReceiptPDF } from './pdf'
 import { exportReportExcel, exportClientsExcel } from './excel'
 import { runAutoBackupNow as autoBackupNow } from './autoBackup'
@@ -304,6 +306,24 @@ export function registerIpc(): void {
 
   // App info
   ipcMain.handle('app:info', safe(() => ({ version: app.getVersion(), dbPath: getDbPath() })))
+
+  // System reset
+  ipcMain.handle(
+    'system:resetData',
+    safe(() => {
+      SystemRepo.resetData(getDb())
+      const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+      win?.webContents.reload()
+    })
+  )
+  ipcMain.handle(
+    'system:resetAll',
+    safe(() => {
+      SystemRepo.resetAll()
+      // Relaunch the whole app so onboarding wizard appears cleanly
+      setTimeout(() => SystemRepo.relaunch(), 100)
+    })
+  )
 
   // Backup
   ipcMain.handle(

@@ -99,6 +99,10 @@ const api = {
   // Updates
   updateCheck: () => call('update:check'),
 
+  // System reset
+  systemResetData: () => call('system:resetData'),
+  systemResetAll: () => call('system:resetAll'),
+
   // Dashboard / Reports
   dashboard: () => call('dashboard'),
   reportSummary: (filters: unknown) => call('report:summary', filters),

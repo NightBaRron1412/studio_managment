@@ -340,6 +340,10 @@ export interface API {
   // Updates
   updateCheck: () => Promise<{ available: boolean; version?: string; error?: string }>
 
+  // System reset
+  systemResetData: () => Promise<void>
+  systemResetAll: () => Promise<void>
+
   // Excel client export
   exportClientsExcel: () => Promise<{ path: string } | { canceled: true }>
 

@@ -1,7 +1,7 @@
 {
   "name": "studio-manager",
   "productName": "نظام إدارة مبيعات الاستوديو",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "نظام إدارة مبيعات الاستوديو - تتبع المعاملات، العملاء، الإيجار، والمخزون",
   "main": "out/main/index.js",
   "author": {
@@ -68,7 +68,8 @@
       {
         "provider": "github",
         "owner": "NightBaRron1412",
-        "repo": "studio_managment"
+        "repo": "studio_managment",
+        "releaseType": "release"
       }
     ],
     "files": [
