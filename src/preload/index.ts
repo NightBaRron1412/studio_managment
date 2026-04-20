@@ -98,6 +98,23 @@ const api = {
 
   // Updates
   updateCheck: () => call('update:check'),
+  updateDownload: () => call('update:download'),
+  updateInstall: () => call('update:install'),
+  onUpdateProgress: (cb: (p: unknown) => void) => {
+    const listener = (_e: unknown, p: unknown): void => cb(p)
+    ipcRenderer.on('update:progress', listener)
+    return () => ipcRenderer.removeListener('update:progress', listener)
+  },
+  onUpdateDownloaded: (cb: (info: unknown) => void) => {
+    const listener = (_e: unknown, info: unknown): void => cb(info)
+    ipcRenderer.on('update:downloaded', listener)
+    return () => ipcRenderer.removeListener('update:downloaded', listener)
+  },
+  onUpdateError: (cb: (info: unknown) => void) => {
+    const listener = (_e: unknown, info: unknown): void => cb(info)
+    ipcRenderer.on('update:error', listener)
+    return () => ipcRenderer.removeListener('update:error', listener)
+  },
 
   // System reset
   systemResetData: () => call('system:resetData'),

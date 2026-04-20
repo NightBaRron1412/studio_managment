@@ -252,25 +252,65 @@ export function registerIpc(): void {
 
   // Updates — bulletproof. electron-updater fails noisily in dev / unpackaged
   // / unconfigured states; we wrap every step so the renderer always gets a
-  // clean { available, error? } shape instead of a crash.
+  // clean shape instead of a crash. Three handlers: check, download, install.
+
+  type Updater = {
+    autoDownload?: boolean
+    autoInstallOnAppQuit?: boolean
+    checkForUpdates?: () => Promise<{ updateInfo?: { version?: string } } | null>
+    downloadUpdate?: () => Promise<unknown>
+    quitAndInstall?: (isSilent?: boolean, isForceRunAfter?: boolean) => void
+    on?: (event: string, listener: (info: unknown) => void) => void
+    removeAllListeners?: (event?: string) => void
+  }
+
+  let cachedUpdater: Updater | null = null
+  async function getUpdater(): Promise<Updater> {
+    if (cachedUpdater) return cachedUpdater
+    const mod = await import('electron-updater').catch((e) => {
+      throw new Error('وحدة التحديث غير مثبَّتة: ' + (e as Error).message)
+    })
+    const u =
+      ((mod as Record<string, unknown>).autoUpdater as Updater) ||
+      (((mod as Record<string, unknown>).default as Record<string, unknown>)?.autoUpdater as Updater)
+    if (!u || typeof u.checkForUpdates !== 'function') {
+      throw new Error('وحدة التحديث غير متاحة في هذه النسخة')
+    }
+    // We control download timing manually
+    u.autoDownload = false
+    u.autoInstallOnAppQuit = true
+    // Forward download progress to all renderer windows
+    u.removeAllListeners?.('download-progress')
+    u.removeAllListeners?.('update-downloaded')
+    u.removeAllListeners?.('error')
+    u.on?.('download-progress', (info) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        w.webContents.send('update:progress', info)
+      }
+    })
+    u.on?.('update-downloaded', (info) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        w.webContents.send('update:downloaded', info)
+      }
+    })
+    u.on?.('error', (err) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        w.webContents.send('update:error', { message: (err as Error)?.message || String(err) })
+      }
+    })
+    cachedUpdater = u
+    return u
+  }
+
   ipcMain.handle(
     'update:check',
     safe(async () => {
       try {
-        const mod = await import('electron-updater').catch((e) => {
-          throw new Error('وحدة التحديث غير مثبَّتة: ' + (e as Error).message)
-        })
-        const u: { checkForUpdates?: () => Promise<{ updateInfo?: { version?: string } }> } =
-          (mod as Record<string, unknown>).autoUpdater as never ||
-          ((mod as Record<string, unknown>).default as Record<string, unknown>)?.autoUpdater as never
-        if (!u || typeof u.checkForUpdates !== 'function') {
-          return { available: false, error: 'وحدة التحديث غير متاحة في هذه النسخة' }
-        }
+        const u = await getUpdater()
         let r: { updateInfo?: { version?: string } } | null = null
         try {
-          r = await u.checkForUpdates()
+          r = await u.checkForUpdates!()
         } catch (e) {
-          // Common: no publish config baked, no internet, dev-mode disabled, etc.
           return { available: false, error: e instanceof Error ? e.message : 'تعذّر الاتصال بسيرفر التحديثات' }
         }
         const ver = r?.updateInfo?.version
@@ -278,6 +318,27 @@ export function registerIpc(): void {
       } catch (e) {
         return { available: false, error: e instanceof Error ? e.message : 'فشل فحص التحديث' }
       }
+    })
+  )
+
+  ipcMain.handle(
+    'update:download',
+    safe(async () => {
+      const u = await getUpdater()
+      if (!u.downloadUpdate) throw new Error('التنزيل غير مدعوم')
+      await u.downloadUpdate()
+      return { ok: true }
+    })
+  )
+
+  ipcMain.handle(
+    'update:install',
+    safe(async () => {
+      const u = await getUpdater()
+      if (!u.quitAndInstall) throw new Error('التثبيت غير مدعوم')
+      // Tiny delay so the IPC reply reaches the renderer before we quit
+      setTimeout(() => u.quitAndInstall!(true, true), 300)
+      return { ok: true }
     })
   )
 

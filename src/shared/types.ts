@@ -339,6 +339,11 @@ export interface API {
 
   // Updates
   updateCheck: () => Promise<{ available: boolean; version?: string; error?: string }>
+  updateDownload: () => Promise<{ ok: true }>
+  updateInstall: () => Promise<{ ok: true }>
+  onUpdateProgress: (cb: (p: { percent?: number; transferred?: number; total?: number; bytesPerSecond?: number }) => void) => () => void
+  onUpdateDownloaded: (cb: (info: { version?: string }) => void) => () => void
+  onUpdateError: (cb: (info: { message: string }) => void) => () => void
 
   // System reset
   systemResetData: () => Promise<void>

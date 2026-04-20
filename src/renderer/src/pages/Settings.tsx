@@ -968,32 +968,7 @@ function DataTab(): JSX.Element {
         </button>
       </div>
 
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-bold">التحديثات</h3>
-        </div>
-        <p className="text-sm text-ink-muted mb-3">تحقق من توفر إصدار جديد من البرنامج.</p>
-        <button
-          className="btn-secondary"
-          onClick={async () => {
-            try {
-              const r = await api.updateCheck()
-              if (r.error) {
-                toast.error(r.error)
-              } else if (r.available) {
-                toast.success(`تتوفر نسخة جديدة: ${r.version}`)
-              } else {
-                toast.info('أنت تستخدم أحدث إصدار')
-              }
-            } catch (e) {
-              toast.error(e instanceof Error ? e.message : 'فشل الفحص')
-            }
-          }}
-        >
-          <RefreshCw size={18} />
-          فحص التحديثات
-        </button>
-      </div>
+      <UpdatesSection />
 
       <div className="card p-5">
         <h3 className="font-bold mb-2">معلومات التطبيق</h3>
@@ -1002,6 +977,152 @@ function DataTab(): JSX.Element {
           <div className="break-all">مكان قاعدة البيانات: <span className="font-mono text-xs text-ink">{info?.dbPath}</span></div>
         </div>
       </div>
+    </div>
+  )
+}
+
+type UpdateState =
+  | { phase: 'idle' }
+  | { phase: 'checking' }
+  | { phase: 'available'; version: string }
+  | { phase: 'downloading'; percent: number }
+  | { phase: 'downloaded'; version: string }
+  | { phase: 'up-to-date' }
+  | { phase: 'error'; message: string }
+
+function UpdatesSection(): JSX.Element {
+  const [state, setState] = useState<UpdateState>({ phase: 'idle' })
+
+  useEffect(() => {
+    const offProgress = api.onUpdateProgress((p) => {
+      const percent = Math.max(0, Math.min(100, Math.round((p as { percent?: number })?.percent ?? 0)))
+      setState({ phase: 'downloading', percent })
+    })
+    const offDone = api.onUpdateDownloaded((info) => {
+      setState({ phase: 'downloaded', version: (info as { version?: string })?.version ?? '' })
+    })
+    const offErr = api.onUpdateError((info) => {
+      setState({ phase: 'error', message: (info as { message: string }).message })
+    })
+    return () => {
+      offProgress()
+      offDone()
+      offErr()
+    }
+  }, [])
+
+  const onCheck = async (): Promise<void> => {
+    setState({ phase: 'checking' })
+    try {
+      const r = await api.updateCheck()
+      if (r.error) {
+        setState({ phase: 'error', message: r.error })
+      } else if (r.available && r.version) {
+        setState({ phase: 'available', version: r.version })
+      } else {
+        setState({ phase: 'up-to-date' })
+      }
+    } catch (e) {
+      setState({ phase: 'error', message: e instanceof Error ? e.message : 'فشل الفحص' })
+    }
+  }
+
+  const onDownload = async (): Promise<void> => {
+    if (state.phase !== 'available') return
+    setState({ phase: 'downloading', percent: 0 })
+    try {
+      await api.updateDownload()
+      // 'update-downloaded' event will switch state to 'downloaded'
+    } catch (e) {
+      setState({ phase: 'error', message: e instanceof Error ? e.message : 'فشل التحميل' })
+    }
+  }
+
+  const onInstall = async (): Promise<void> => {
+    try {
+      await api.updateInstall()
+      // The app will quit and relaunch shortly after
+      toast.info('سيُعاد تشغيل البرنامج لتثبيت التحديث...')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'فشل التثبيت')
+    }
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-bold">التحديثات</h3>
+      </div>
+      <p className="text-sm text-ink-muted mb-3">
+        تحقق من توفر إصدار جديد. إذا توفّر، يمكنك تحميله وتثبيته بضغطة زر — لا حاجة لإعادة تنزيل البرنامج.
+      </p>
+
+      {(state.phase === 'idle' || state.phase === 'up-to-date' || state.phase === 'error') && (
+        <button className="btn-secondary" onClick={onCheck}>
+          <RefreshCw size={18} />
+          فحص التحديثات
+        </button>
+      )}
+
+      {state.phase === 'checking' && (
+        <button className="btn-secondary" disabled>
+          <RefreshCw size={18} className="animate-spin" />
+          جارٍ الفحص...
+        </button>
+      )}
+
+      {state.phase === 'available' && (
+        <div className="space-y-2">
+          <div className="bg-emerald-50 text-emerald-800 rounded-xl p-3 text-sm flex items-center gap-2 font-bold">
+            <RefreshCw size={16} />
+            تتوفر نسخة جديدة: <span className="num">{state.version}</span>
+          </div>
+          <button className="btn-primary" onClick={onDownload}>
+            <Download size={16} />
+            تحميل التحديث
+          </button>
+        </div>
+      )}
+
+      {state.phase === 'downloading' && (
+        <div className="space-y-2">
+          <div className="text-sm text-ink-muted flex items-center justify-between">
+            <span>جارٍ تحميل التحديث...</span>
+            <span className="num font-bold">{state.percent}%</span>
+          </div>
+          <div className="h-2 bg-bg-subtle rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-500 transition-all duration-300"
+              style={{ width: `${state.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {state.phase === 'downloaded' && (
+        <div className="space-y-2">
+          <div className="bg-emerald-50 text-emerald-800 rounded-xl p-3 text-sm flex items-center gap-2 font-bold">
+            ✓ اكتمل تحميل النسخة <span className="num">{state.version}</span>
+          </div>
+          <button className="btn-primary" onClick={onInstall}>
+            <RefreshCw size={16} />
+            إعادة التشغيل والتثبيت
+          </button>
+        </div>
+      )}
+
+      {state.phase === 'up-to-date' && (
+        <div className="mt-3 text-sm text-ink-muted flex items-center gap-2">
+          ✓ أنت تستخدم أحدث إصدار
+        </div>
+      )}
+
+      {state.phase === 'error' && (
+        <div className="mt-3 bg-red-50 text-red-700 rounded-xl p-3 text-sm">
+          <div className="font-bold mb-1">تعذّر فحص التحديثات</div>
+          <div className="text-xs leading-relaxed">{state.message}</div>
+        </div>
+      )}
     </div>
   )
 }

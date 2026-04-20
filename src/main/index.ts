@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDb, closeDb } from './db'
 import { registerIpc } from './ipc'
 import { runAutoBackupIfDue } from './autoBackup'
+import { closeSplash, createSplash } from './splash'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -28,7 +29,11 @@ function createWindow(): void {
   Menu.setApplicationMenu(null)
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
+    // Keep splash visible for a minimum of 800ms so it doesn't flash by
+    setTimeout(() => {
+      mainWindow?.show()
+      closeSplash()
+    }, 800)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
