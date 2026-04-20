@@ -478,9 +478,12 @@ export function registerIpc(): void {
       }
       const opened = await openUrlRobust(url)
       const tmpPath = uniqueTempPdf(`receipt-${tx.transaction_no}`)
+      // After PDF is ready, reveal it in the user's file manager so they can
+      // drag it straight into the WhatsApp chat. wa.me does NOT support
+      // attaching files via URL — manual attach is the only way.
       exportReceiptPDF(tmpPath, tx, settings)
         .then(() => {
-          shell.openPath(tmpPath).catch(() => {})
+          shell.showItemInFolder(tmpPath)
         })
         .catch(() => {})
       return { url, opened, phone: phone || null, pdfPath: tmpPath }

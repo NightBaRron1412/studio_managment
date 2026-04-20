@@ -86,6 +86,7 @@ export function PinLock({ onUnlock }: { onUnlock: () => void }): JSX.Element {
         </div>
 
         <div
+          dir="ltr"
           className={cn(
             'flex justify-center gap-2 mb-6 transition min-h-[12px]',
             error && 'animate-shake'

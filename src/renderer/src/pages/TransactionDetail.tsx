@@ -58,7 +58,7 @@ export function TransactionDetail(): JSX.Element {
     mutationFn: () => api.whatsappShareTransaction(Number(id)),
     onSuccess: (r) => {
       if (r.opened) {
-        toast.success('فُتحت واتساب — أرفق ملف PDF واضغط إرسال')
+        toast.success('فُتحت واتساب — اسحب ملف PDF من النافذة المفتوحة إلى المحادثة')
       } else {
         toast.info('تم نسخ رابط واتساب إلى الحافظة — الصِقه في المتصفح')
       }
