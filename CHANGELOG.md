@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.2] — 2026-04-20
+
+### Fixed
+- 💰 **Editing a transaction now correctly shows the previously-paid amount** in the «المبلغ المدفوع» field. The auto-fill effect that defaults the field to the total on a *new* transaction was racing the existing-load effect on edits — both ran in the same effect phase, the auto-fill called `setPaidAmount` last with a still-stale `totals.total = 0`, and the field stuck at 0 forever (so a transaction paid 74/100 looked like 0/100 in the edit screen). The auto-fill now skips when an existing transaction is loaded.
+
+---
+
 ## [1.1.1] — 2026-04-20
 
 ### Fixed

@@ -123,10 +123,15 @@ export function NewTransaction(): JSX.Element {
     return { subtotal, discount_amount, vat_amount, total }
   }, [lines, discountType, discountValue, vatPercent])
 
-  // Auto-fill paid amount with the total when user hasn't edited it
+  // Auto-fill paid amount with the total when user hasn't edited it.
+  // Skip when we're loading an existing transaction — the existing-effect
+  // sets paidAmount/paidTouched, but if this auto-fill ran in the same
+  // effect phase it would race and clobber paidAmount with the (still-stale)
+  // totals.total value of 0, leaving the field stuck at zero forever.
   useEffect(() => {
+    if (existing) return
     if (!paidTouched) setPaidAmount(String(totals.total.toFixed(2)))
-  }, [totals.total, paidTouched])
+  }, [totals.total, paidTouched, existing])
 
   const remaining = Math.max(0, totals.total - (Number(paidAmount) || 0))
 
