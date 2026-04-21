@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.4] — 2026-04-20
+
+### Added
+- 💳 **Payment status on the طلبات قيد التسليم table** — same chip + amber row tint as the transactions and clients lists, so unpaid pickups stand out alongside paid ones at a glance.
+
+### Fixed
+- 🌙 **Dark-mode tints for the new payment-status highlights** — `bg-amber-50/40` (the row tint on unpaid transactions, pickups, and owing clients) and `bg-amber-100` (the amber avatar in the clients list) weren't in the dark-mode auto-mapping table, so they rendered as glaring solid amber on a dark background. Both are now mapped to translucent amber that blends with the dark theme.
+
+---
+
 ## [1.1.3] — 2026-04-20
 
 ### Added

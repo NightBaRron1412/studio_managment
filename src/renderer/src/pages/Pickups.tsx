@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { fmtMoney, fmtDateShort } from '@/lib/format'
-import { Package, CheckCircle2, Clock, MessageCircle, AlertTriangle, Wallet } from 'lucide-react'
+import { Package, CheckCircle2, Clock, MessageCircle, AlertTriangle, Wallet, AlertCircle } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Dialog } from '@/components/ui/Dialog'
 import { toast } from '@/store/toast'
@@ -119,6 +119,7 @@ export function Pickups(): JSX.Element {
                 <th>تاريخ المعاملة</th>
                 <th>موعد التسليم</th>
                 <th>الحالة</th>
+                <th className="text-center">الدفع</th>
                 <th className="text-left">الإجمالي</th>
                 <th className="w-48"></th>
               </tr>
@@ -126,8 +127,18 @@ export function Pickups(): JSX.Element {
             <tbody>
               {list.map((t) => {
                 const isOverdue = t.pickup_promised_date && t.pickup_promised_date < today
+                const rem = Math.max(0, Number((t.total - t.paid_amount).toFixed(2)))
+                const fullyPaid = rem <= 0.0001
+                const partial = !fullyPaid && t.paid_amount > 0.0001
                 return (
-                  <tr key={t.id} className="cursor-pointer" onClick={() => nav(`/transactions/${t.id}`)}>
+                  <tr
+                    key={t.id}
+                    className={cn(
+                      'cursor-pointer',
+                      !fullyPaid && 'bg-amber-50/40 hover:bg-amber-50'
+                    )}
+                    onClick={() => nav(`/transactions/${t.id}`)}
+                  >
                     <td className="font-bold num">{t.transaction_no}</td>
                     <td>{t.client_name || <span className="text-ink-soft">—</span>}</td>
                     <td className="num text-sm">{fmtDateShort(t.date)}</td>
@@ -153,6 +164,19 @@ export function Pickups(): JSX.Element {
                           </>
                         )}
                       </span>
+                    </td>
+                    <td className="text-center">
+                      {fullyPaid ? (
+                        <span className="chip text-xs bg-emerald-50 text-emerald-700">
+                          <CheckCircle2 size={12} />
+                          مدفوع
+                        </span>
+                      ) : (
+                        <span className="chip text-xs bg-amber-50 text-amber-700 num">
+                          <AlertCircle size={12} />
+                          {partial ? `متبقّي ${fmtMoney(rem)}` : `آجل ${fmtMoney(rem)}`}
+                        </span>
+                      )}
                     </td>
                     <td className="text-left font-bold num">{fmtMoney(t.total)}</td>
                     <td className="text-end" onClick={(e) => e.stopPropagation()}>

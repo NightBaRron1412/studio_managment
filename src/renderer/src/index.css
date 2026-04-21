@@ -124,6 +124,8 @@ input, textarea, select {
  * the same className works in both themes. */
 html.dark .bg-amber-50 { background-color: rgb(245 158 11 / 0.20); }
 html.dark .bg-amber-50\/50 { background-color: rgb(245 158 11 / 0.18); }
+html.dark .bg-amber-50\/40 { background-color: rgb(245 158 11 / 0.15); }
+html.dark .bg-amber-100 { background-color: rgb(245 158 11 / 0.25); }
 html.dark .hover\:bg-amber-50:hover { background-color: rgb(245 158 11 / 0.28); }
 html.dark .bg-red-50 { background-color: rgb(239 68 68 / 0.20); }
 html.dark .bg-red-50\/50 { background-color: rgb(239 68 68 / 0.18); }
