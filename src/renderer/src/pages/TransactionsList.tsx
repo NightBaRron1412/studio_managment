@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { fmtMoney, fmtDateShort } from '@/lib/format'
-import { Search, Plus } from 'lucide-react'
+import { Search, Plus, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { cn } from '@/lib/cn'
 
 export function TransactionsList(): JSX.Element {
   const nav = useNavigate()
@@ -92,23 +93,48 @@ export function TransactionsList(): JSX.Element {
                 <th>التاريخ</th>
                 <th>العميل</th>
                 <th>الموظف</th>
+                <th className="text-center">حالة الدفع</th>
                 <th className="text-left">الإجمالي</th>
               </tr>
             </thead>
             <tbody>
-              {list.map((t) => (
+              {list.map((t) => {
+                const remaining = Math.max(0, Number((t.total - t.paid_amount).toFixed(2)))
+                const fullyPaid = remaining <= 0.0001
+                const partial = !fullyPaid && t.paid_amount > 0.0001
+                return (
                 <tr
                   key={t.id}
-                  className="cursor-pointer"
+                  className={cn(
+                    'cursor-pointer',
+                    !fullyPaid && 'bg-amber-50/40 hover:bg-amber-50'
+                  )}
                   onClick={() => nav(`/transactions/${t.id}`)}
                 >
                   <td className="font-bold num">{t.transaction_no}</td>
                   <td className="num">{fmtDateShort(t.date)}</td>
                   <td>{t.client_name || <span className="text-ink-soft">—</span>}</td>
                   <td>{t.staff_name || <span className="text-ink-soft">—</span>}</td>
+                  <td className="text-center">
+                    {fullyPaid ? (
+                      <span className="chip text-xs bg-emerald-50 text-emerald-700">
+                        <CheckCircle2 size={12} />
+                        مدفوع
+                      </span>
+                    ) : (
+                      <span
+                        className="chip text-xs bg-amber-50 text-amber-700 num"
+                        title={`متبقّي ${fmtMoney(remaining)}`}
+                      >
+                        <AlertCircle size={12} />
+                        {partial ? `متبقّي ${fmtMoney(remaining)}` : `آجل ${fmtMoney(remaining)}`}
+                      </span>
+                    )}
+                  </td>
                   <td className="text-left font-bold num">{fmtMoney(t.total)}</td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}

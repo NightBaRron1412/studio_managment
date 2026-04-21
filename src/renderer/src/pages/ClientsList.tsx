@@ -4,10 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { fmtMoney, fmtDateShort } from '@/lib/format'
-import { Search, Plus, User } from 'lucide-react'
+import { Search, Plus, User, AlertCircle } from 'lucide-react'
 import { Dialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
+import { cn } from '@/lib/cn'
 
 export function ClientsList(): JSX.Element {
   const nav = useNavigate()
@@ -90,15 +91,30 @@ export function ClientsList(): JSX.Element {
                 <th>رقم الهاتف</th>
                 <th className="text-center">عدد الزيارات</th>
                 <th className="text-center">آخر زيارة</th>
+                <th className="text-center">المتبقّي عليه</th>
                 <th className="text-left">إجمالي المشتريات</th>
               </tr>
             </thead>
             <tbody>
-              {list.map((c) => (
-                <tr key={c.id} className="cursor-pointer" onClick={() => nav(`/clients/${c.id}`)}>
+              {list.map((c) => {
+                const owes = (c.outstanding ?? 0) > 0.0001
+                return (
+                <tr
+                  key={c.id}
+                  className={cn(
+                    'cursor-pointer',
+                    owes && 'bg-amber-50/40 hover:bg-amber-50'
+                  )}
+                  onClick={() => nav(`/clients/${c.id}`)}
+                >
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center">
+                      <div
+                        className={cn(
+                          'w-9 h-9 rounded-full flex items-center justify-center',
+                          owes ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700'
+                        )}
+                      >
                         <User size={16} />
                       </div>
                       <span className="font-bold">{c.name}</span>
@@ -107,9 +123,20 @@ export function ClientsList(): JSX.Element {
                   <td className="num" dir="ltr">{c.phone || '—'}</td>
                   <td className="text-center num">{c.visit_count}</td>
                   <td className="text-center num">{c.last_visit ? fmtDateShort(c.last_visit) : '—'}</td>
+                  <td className="text-center">
+                    {owes ? (
+                      <span className="chip text-xs bg-amber-50 text-amber-700 num">
+                        <AlertCircle size={12} />
+                        {fmtMoney(c.outstanding ?? 0)}
+                      </span>
+                    ) : (
+                      <span className="text-ink-soft text-xs">—</span>
+                    )}
+                  </td>
                   <td className="text-left font-bold num">{fmtMoney(c.total_spent)}</td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}

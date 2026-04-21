@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.3] — 2026-04-20
+
+### Added
+- 💳 **Payment status column on the transactions table** — every row now shows a chip: «مدفوع ✓» in green for fully-paid sales, «متبقّي X» or «آجل X» in amber for anything still owed. Unpaid rows also get a soft amber row tint so they jump out at a glance.
+- 👤 **Outstanding-balance highlight on the clients list** — clients with any unpaid balance get an amber row tint, an amber avatar, and a new «المتبقّي عليه» chip showing exactly how much they owe.
+
+---
+
 ## [1.1.2] — 2026-04-20
 
 ### Fixed
