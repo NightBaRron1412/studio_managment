@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.1] — 2026-04-20
+
+### Fixed
+- 🔄 **Editing a transaction now shows the new values immediately** — the save handler invalidated only the transactions list cache, so navigating back to the transaction detail page rendered the stale pre-edit copy. Now it also invalidates `['transaction', id]`, so the detail view refetches and reflects the edit straight away.
+
+---
+
 ## [1.1.0] — 2026-04-20
 
 ### Added

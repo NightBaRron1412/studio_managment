@@ -193,6 +193,9 @@ export function NewTransaction(): JSX.Element {
     },
     onSuccess: (tx) => {
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      // Invalidate the single-transaction cache key TransactionDetail reads,
+      // otherwise the redirect lands on a stale view of the unedited row.
+      qc.invalidateQueries({ queryKey: ['transaction', String(tx.id)] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['clients'] })
       qc.invalidateQueries({ queryKey: ['debtors'] })
