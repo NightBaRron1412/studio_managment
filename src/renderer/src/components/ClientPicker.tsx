@@ -63,7 +63,7 @@ export function ClientPicker({ value, onChange }: Props): JSX.Element {
         ) : (
           <button className="btn-secondary flex-1 justify-start" onClick={() => setOpen(true)}>
             <Search size={18} />
-            <span className="text-ink-muted">اختر عميلاً (اختياري)</span>
+            <span className="text-ink-muted">اختر عميلاً</span>
           </button>
         )}
       </div>

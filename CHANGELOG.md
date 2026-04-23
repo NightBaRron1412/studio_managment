@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.9] — 2026-04-21
+
+### Fixed
+- 👤 **Stale "(اختياري)" text in the customer picker** — the field label was switched to required in 1.1.7, but the placeholder inside the picker button still said «اختر عميلاً (اختياري)». Now matches the required state.
+
+---
+
 ## [1.1.8] — 2026-04-21
 
 ### Changed
