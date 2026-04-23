@@ -220,7 +220,12 @@ export function NewTransaction(): JSX.Element {
     onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحفظ')
   })
 
-  const canSave = lines.length > 0 && lines.every((l) => (l.item_id || (l.custom_name || l.item_name).trim()) && Number(l.quantity) > 0)
+  // Customer + staff are required so every sale traces to who-bought-from-whom.
+  const canSave =
+    !!client &&
+    !!staff.trim() &&
+    lines.length > 0 &&
+    lines.every((l) => (l.item_id || (l.custom_name || l.item_name).trim()) && Number(l.quantity) > 0)
 
   return (
     <>
@@ -244,7 +249,7 @@ export function NewTransaction(): JSX.Element {
                 />
               </div>
               <div>
-                <label className="label">العميل (اختياري)</label>
+                <label className="label">العميل *</label>
                 <ClientPicker value={client} onChange={setClient} />
                 {client && suggested.length > 0 && (
                   <div className="mt-2">
@@ -295,29 +300,26 @@ export function NewTransaction(): JSX.Element {
                 </select>
               </div>
               <div>
-                <label className="label">الموظف (اختياري)</label>
+                <label className="label">الموظف *</label>
                 {staffList.length > 0 ? (
-                  <>
-                    <input
-                      className="input"
-                      list="staff-options"
-                      placeholder="اختر من القائمة أو اكتب اسماً"
-                      value={staff}
-                      onChange={(e) => setStaff(e.target.value)}
-                    />
-                    <datalist id="staff-options">
-                      {staffList.map((s) => (
-                        <option key={s.id} value={s.name} />
-                      ))}
-                    </datalist>
-                  </>
-                ) : (
-                  <input
+                  <select
                     className="input"
-                    placeholder="من سجّل المعاملة (أضف الموظفين من الإعدادات)"
                     value={staff}
                     onChange={(e) => setStaff(e.target.value)}
-                  />
+                  >
+                    <option value="">— اختر الموظف —</option>
+                    {staffList.map((s) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <button
+                    type="button"
+                    className="input text-right text-ink-muted hover:bg-bg-subtle"
+                    onClick={() => nav('/settings')}
+                  >
+                    أضف الموظفين من الإعدادات أولاً ←
+                  </button>
                 )}
               </div>
             </div>

@@ -334,7 +334,18 @@ export function registerIpc(): void {
         try {
           r = await u.checkForUpdates!()
         } catch (e) {
-          return { available: false, error: e instanceof Error ? e.message : 'تعذّر الاتصال بسيرفر التحديثات' }
+          // Workflow-still-uploading case: GitHub Release exists but its
+          // latest.yml asset hasn't been uploaded yet (electron-builder
+          // uploads it last). electron-updater throws a "cannot find
+          // latest.yml in the latest release" error in that window.
+          // Treat it as "no update available right now" rather than a
+          // scary error message — the user just needs to re-check in a
+          // few minutes once CI finishes.
+          const msg = e instanceof Error ? e.message : String(e)
+          if (/latest\.yml|404|HttpError: 404/i.test(msg)) {
+            return { available: false }
+          }
+          return { available: false, error: msg || 'تعذّر الاتصال بسيرفر التحديثات' }
         }
         const ver = r?.updateInfo?.version
         return { available: !!ver && ver !== app.getVersion(), version: ver }
