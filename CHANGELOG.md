@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.8] — 2026-04-21
+
+### Changed
+- 📦 **Default pickup status on a new transaction is now «قيد التحضير»** instead of «سُلِّم فوراً». Most studio orders need preparation before handover, so this default reflects reality and removes a click. The helper text under the dropdown now nudges you to switch to «سُلِّم فوراً» only when the customer takes the product on the spot.
+
+---
+
 ## [1.1.7] — 2026-04-21
 
 ### Changed

@@ -51,7 +51,11 @@ export function NewTransaction(): JSX.Element {
   const [vatPercent, setVatPercent] = useState<string>(vatEnabled ? String(defaultVat) : '0')
   const [paidAmount, setPaidAmount] = useState('')
   const [paidTouched, setPaidTouched] = useState(false)
-  const [pickupStatus, setPickupStatus] = useState<PickupStatus>(null)
+  // Default to "قيد التحضير" — most studio orders aren't handed over the
+  // same minute they're paid for, so making this the default reduces clicks
+  // and makes the طلبات قيد التسليم list reflect reality without owners
+  // having to remember to flip the dropdown each time.
+  const [pickupStatus, setPickupStatus] = useState<PickupStatus>('pending')
   const [pickupDate, setPickupDate] = useState('')
 
   // Load existing transaction (for editing) OR duplicate from state
@@ -506,7 +510,7 @@ export function NewTransaction(): JSX.Element {
               </div>
             </div>
             <p className="text-xs text-ink-muted mt-2">
-              اتركها على "سُلِّم فوراً" إذا أخذ العميل المنتج الآن.
+              غيّرها إلى "سُلِّم فوراً" إذا أخذ العميل المنتج معه الآن.
             </p>
           </div>
 
