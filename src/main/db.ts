@@ -25,10 +25,27 @@ export function initDb(): Database.Database {
   const path = getDbPath()
   db = new Database(path)
   db.pragma('journal_mode = WAL')
+  // synchronous=FULL fsyncs every commit so a hard PC shutdown after an
+  // edit can't roll the row back to its pre-edit state. Slight write-cost
+  // (microseconds per commit) but this is a desktop app — durability wins.
+  db.pragma('synchronous = FULL')
   db.pragma('foreign_keys = ON')
   migrate(db)
   seedIfEmpty(db)
   return db
+}
+
+// Force a WAL checkpoint and fsync. Called from IPC handlers after every
+// write so even an instant power loss leaves the database consistent.
+export function checkpointDb(): void {
+  if (db) {
+    try {
+      db.pragma('wal_checkpoint(PASSIVE)')
+    } catch {
+      // checkpoint failure isn't fatal — synchronous=FULL has already
+      // fsync'd the WAL entry; we just couldn't fold it into the main file.
+    }
+  }
 }
 
 export function closeDb(): void {
@@ -218,13 +235,30 @@ function migrate(d: Database.Database): void {
      CREATE INDEX IF NOT EXISTS idx_staff_active ON staff(is_active);`
   )
 
-  // Backfill: existing transactions get paid_amount = total (assume fully paid history)
+  // One-shot historical backfill — runs ONCE per database, then a flag in
+  // settings stops it from ever running again. The original query
+  //   UPDATE transactions SET paid_amount = total WHERE paid_amount = 0
+  // ran on every launch and silently marked every legitimate آجل sale as
+  // fully paid the next time the app started. We still need the backfill
+  // for users upgrading from versions before paid_amount/subtotal existed,
+  // but it must never touch rows that legitimately have paid_amount = 0.
   d.prepare(
-    `UPDATE transactions SET paid_amount = total WHERE paid_amount = 0 AND total > 0`
+    `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`
   ).run()
-  d.prepare(
-    `UPDATE transactions SET subtotal = total WHERE subtotal = 0 AND total > 0`
-  ).run()
+  const flag = d
+    .prepare(`SELECT value FROM settings WHERE key = 'paid_subtotal_backfill_done'`)
+    .get() as { value: string } | undefined
+  if (!flag) {
+    d.prepare(
+      `UPDATE transactions SET paid_amount = total WHERE paid_amount = 0 AND total > 0`
+    ).run()
+    d.prepare(
+      `UPDATE transactions SET subtotal = total WHERE subtotal = 0 AND total > 0`
+    ).run()
+    d.prepare(
+      `INSERT OR REPLACE INTO settings (key, value) VALUES ('paid_subtotal_backfill_done', '1')`
+    ).run()
+  }
 
   // Helpful indexes for new columns
   runBatch(

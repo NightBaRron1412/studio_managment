@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.5] — 2026-04-21
+
+### Fixed (critical data-loss bugs)
+- 💾 **Edits no longer revert after a hard PC shutdown** — SQLite was running in WAL mode but with the default `synchronous = NORMAL`, so a power loss could drop the most recent commits and leave a partially-paid edit looking like its pre-edit (often fully-paid) state. We now run `synchronous = FULL` so every commit is fsynced before returning. Tiny per-write cost; bulletproof durability.
+- 🐛 **آجل (paid=0) sales no longer silently turn into "fully paid" on next launch** — there was a one-time historical backfill (`UPDATE transactions SET paid_amount = total WHERE paid_amount = 0`) that was running on **every** app start. Any legitimate آجل sale you created and then closed the app would come back as fully paid. The backfill is now gated behind a settings flag so it runs once per database and never again.
+
+> If you have any آجل sales that mysteriously became fully paid in past versions, you'll need to recreate them — the bug erased the actual paid_amount; we can't recover it. Going forward, both bugs are fixed.
+
+---
+
 ## [1.1.4] — 2026-04-20
 
 ### Added
