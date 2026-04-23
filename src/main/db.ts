@@ -235,28 +235,48 @@ function migrate(d: Database.Database): void {
      CREATE INDEX IF NOT EXISTS idx_staff_active ON staff(is_active);`
   )
 
-  // One-shot historical backfill — runs ONCE per database, then a flag in
-  // settings stops it from ever running again. The original query
+  // One-shot historical backfill — runs at most once per database. The
+  // original query
   //   UPDATE transactions SET paid_amount = total WHERE paid_amount = 0
   // ran on every launch and silently marked every legitimate آجل sale as
   // fully paid the next time the app started. We still need the backfill
-  // for users upgrading from versions before paid_amount/subtotal existed,
-  // but it must never touch rows that legitimately have paid_amount = 0.
-  d.prepare(
-    `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`
-  ).run()
+  // for users upgrading from a schema that lacked paid_amount/subtotal,
+  // but the heuristic «every existing row has paid_amount = 0» is what
+  // distinguishes a real schema-upgrade backfill from "user just typed
+  // an آجل sale and restarted".
   const flag = d
     .prepare(`SELECT value FROM settings WHERE key = 'paid_subtotal_backfill_done'`)
     .get() as { value: string } | undefined
   if (!flag) {
+    // Only run the destructive UPDATE when it really looks like a legacy
+    // schema upgrade: there are existing transactions AND none of them
+    // have any recorded payment yet (i.e., paid_amount column was likely
+    // just added by addColumnIfMissing and defaulted everything to 0).
+    const stats = d
+      .prepare(
+        `SELECT COUNT(*) AS total_count,
+                SUM(CASE WHEN paid_amount > 0 THEN 1 ELSE 0 END) AS paid_count
+         FROM transactions`
+      )
+      .get() as { total_count: number; paid_count: number | null }
+    const looksLikeLegacyUpgrade =
+      stats.total_count > 0 && (stats.paid_count ?? 0) === 0
+    if (looksLikeLegacyUpgrade) {
+      d.prepare(
+        `UPDATE transactions SET paid_amount = total WHERE paid_amount = 0 AND total > 0`
+      ).run()
+      d.prepare(
+        `UPDATE transactions SET subtotal = total WHERE subtotal = 0 AND total > 0`
+      ).run()
+    }
+    // ALWAYS set the flag (even on fresh installs / databases that already
+    // have proper paid data) so the destructive query can never fire later.
+    // Done after seedIfEmpty would otherwise be skipped — see closeover at
+    // end of migrate(): we set the flag here unconditionally so a future
+    // launch never re-evaluates the heuristic.
     d.prepare(
-      `UPDATE transactions SET paid_amount = total WHERE paid_amount = 0 AND total > 0`
-    ).run()
-    d.prepare(
-      `UPDATE transactions SET subtotal = total WHERE subtotal = 0 AND total > 0`
-    ).run()
-    d.prepare(
-      `INSERT OR REPLACE INTO settings (key, value) VALUES ('paid_subtotal_backfill_done', '1')`
+      `INSERT OR REPLACE INTO settings (key, value)
+       VALUES ('paid_subtotal_backfill_done', '1')`
     ).run()
   }
 
@@ -303,8 +323,13 @@ function seedIfEmpty(d: Database.Database): void {
     insertItem.run(phoneId, 'تسليم على الموبايل بدون طباعة', null, 25)
   }
 
-  const setCount = d.prepare('SELECT COUNT(*) as c FROM settings').get() as { c: number }
-  if (setCount.c === 0) {
+  // Use a sentinel key (business_name is always seeded) instead of checking
+  // the whole settings count — migrate() may have inserted internal flags
+  // (e.g., paid_subtotal_backfill_done) before this seed runs.
+  const hasBusinessName = d
+    .prepare(`SELECT 1 FROM settings WHERE key = 'business_name'`)
+    .get()
+  if (!hasBusinessName) {
     const ins = d.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')
     ins.run('business_name', 'نظام إدارة الاستوديو')
     ins.run('default_rent', '2500')

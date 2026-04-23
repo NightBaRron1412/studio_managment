@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.1.6] — 2026-04-21
+
+### Fixed (audit follow-up to 1.1.5)
+- 🐛 **Closed an آجل-corruption hole on fresh installs.** The 1.1.5 backfill gate skipped the destructive UPDATE on a brand-new database, but it also skipped *setting the "done" flag*. So on a fresh install the sequence "create an آجل sale → restart app" would re-evaluate the gate, find a transaction with `paid_amount = 0`, and run the backfill anyway — destroying the آجل sale. The flag is now set unconditionally on first launch, and the backfill only runs when the heuristic clearly indicates a legacy schema upgrade (existing transactions, *all* with `paid_amount = 0`).
+- 🌱 **Default settings (`business_name`, currency, etc.) now seed reliably** even when migrate() has already inserted internal flags into the settings table. Switched the seed-if-empty check from "settings table is empty" to "no `business_name` key yet".
+
+---
+
 ## [1.1.5] — 2026-04-21
 
 ### Fixed (critical data-loss bugs)
