@@ -5,6 +5,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.3.0] — 2026-04-27
+
+### Added — global Ctrl+Z undo
+- ⌨️ **Press `Ctrl+Z` (or `⌘+Z`) anywhere in the app to reverse the last action.** A toast confirms what was undone, and «Ctrl+Z للتراجع» is appended to the success toast of any reversible action so it's discoverable.
+- The undo stack is **session-only** (resets when you close the app) and holds the **last 50 actions**.
+- Ctrl+Z is suppressed while typing in an input/textarea/select so it never breaks native text-edit undo.
+
+### Reversible actions covered
+| Action | Where | Reverses by |
+|---|---|---|
+| Delete transaction | Transaction detail | Restoring from recycle bin |
+| Delete client | Client profile | Restoring from recycle bin |
+| Delete cash withdrawal | Withdrawals | Restoring from recycle bin |
+| Delete rent payment | Rent | Restoring from recycle bin |
+| Delete supplier purchase | مشتريات الموردين | Restoring from recycle bin |
+| Record payment (تسجيل دفعة, تسوية, pay-on-deliver) | Anywhere | Removing the payment row + decrementing paid_amount |
+| Mark order ready / delivered | طلبات قيد التسليم | Restoring previous pickup status |
+| Pay-and-deliver | طلبات قيد التسليم | Removing the payment AND restoring previous pickup status |
+| Restock item (+ تزويد) | Settings → الأصناف | Subtracting the qty + removing the supplier purchase row it created |
+
+### Database
+- New backend APIs: `payment:delete` (removes a payment row + decrements paid_amount on its transaction) and `item:unrestock` (reverses a restock and removes the linked supplier-purchase row).
+- `item:restock` now returns `{ item, purchase_id }` so the renderer can target the exact purchase to unrestock.
+
+---
+
 ## [1.2.1] — 2026-04-27
 
 ### Fixed

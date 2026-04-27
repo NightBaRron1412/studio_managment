@@ -32,6 +32,7 @@ const api = {
   itemDelete: (id: number) => call('item:delete', id),
   itemsLowStock: () => call('items:lowStock'),
   itemRestock: (input: unknown) => call('item:restock', input),
+  itemUnrestock: (purchaseId: number) => call('item:unrestock', purchaseId),
 
   // Staff
   staffList: (opts?: unknown) => call('staff:list', opts),
@@ -46,6 +47,7 @@ const api = {
   transactionUpdate: (id: number, input: unknown) => call('transaction:update', id, input),
   transactionDelete: (id: number) => call('transaction:delete', id),
   transactionMarkPaid: (id: number, additional: number) => call('transaction:markPaid', id, additional),
+  paymentDelete: (id: number) => call('payment:delete', id),
   transactionMarkPickup: (id: number, status: string | null) => call('transaction:markPickup', id, status),
   debtorsList: () => call('debtors:list'),
   pendingPickupsList: () => call('pickups:pending'),

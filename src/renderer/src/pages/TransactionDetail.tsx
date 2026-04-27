@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 
 export function TransactionDetail(): JSX.Element {
   const { id } = useParams<{ id: string }>()
@@ -39,7 +40,21 @@ export function TransactionDetail(): JSX.Element {
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['debtors'] })
-      toast.success('تم نقل المعاملة إلى سلة المحذوفات')
+      qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+      qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+      pushUndo({
+        description: `حذف المعاملة ${tx?.transaction_no ?? ''}`,
+        undo: async () => {
+          await api.recycleRestore('transaction', Number(id))
+          qc.invalidateQueries({ queryKey: ['transactions'] })
+          qc.invalidateQueries({ queryKey: ['transaction', id] })
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+          qc.invalidateQueries({ queryKey: ['debtors'] })
+          qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+          qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+        }
+      })
+      toast.success('تم نقل المعاملة إلى سلة المحذوفات (Ctrl+Z للتراجع)')
       nav('/transactions')
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحذف')
@@ -68,14 +83,32 @@ export function TransactionDetail(): JSX.Element {
 
   const pay = useMutation({
     mutationFn: () => api.transactionMarkPaid(Number(id), Number(payAmount)),
-    onSuccess: () => {
+    onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: ['transaction', id] })
       qc.invalidateQueries({ queryKey: ['debtors'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['cash-close-today'] })
       qc.invalidateQueries({ queryKey: ['cash-close-list'] })
-      toast.success('تم تحديث الدفع')
+      // markPaid inserts a new payment row dated today; the latest entry
+      // in updated.payments (sorted by date asc, id asc) is the one we
+      // just created. Capture its id so Ctrl+Z can target it specifically.
+      const newPayment = updated.payments[updated.payments.length - 1]
+      if (newPayment) {
+        pushUndo({
+          description: `تسجيل دفعة ${fmtMoney(newPayment.amount)}`,
+          undo: async () => {
+            await api.paymentDelete(newPayment.id)
+            qc.invalidateQueries({ queryKey: ['transaction', id] })
+            qc.invalidateQueries({ queryKey: ['debtors'] })
+            qc.invalidateQueries({ queryKey: ['transactions'] })
+            qc.invalidateQueries({ queryKey: ['dashboard'] })
+            qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+            qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+          }
+        })
+      }
+      toast.success('تم تحديث الدفع (Ctrl+Z للتراجع)')
       setPayOpen(false)
       setPayAmount('')
     },

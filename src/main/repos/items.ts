@@ -96,7 +96,7 @@ export const ItemsRepo = {
     supplier?: string | null
     note?: string | null
     date?: string
-  }): Item {
+  }): { item: Item; purchase_id: ID } {
     const db = getDb()
     const item = db.prepare('SELECT * FROM items WHERE id = ?').get(input.item_id) as Item | undefined
     if (!item) throw new Error('الصنف غير موجود')
@@ -104,15 +104,41 @@ export const ItemsRepo = {
     if (qty <= 0) throw new Error('الكمية يجب أن تكون أكبر من 0')
     const date = input.date || new Date().toISOString().slice(0, 10)
     const cost = Number(input.cost) || 0
-    const tx = db.transaction(() => {
+    let purchaseId = 0
+    const txFn = db.transaction(() => {
       db.prepare('UPDATE items SET stock_qty = stock_qty + ? WHERE id = ?').run(qty, input.item_id)
-      db.prepare(
-        `INSERT INTO inventory_purchases (date, item_name, quantity, cost, supplier, note, item_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).run(date, item.name_ar, qty, cost, input.supplier || null, input.note || null, input.item_id)
+      const info = db
+        .prepare(
+          `INSERT INTO inventory_purchases (date, item_name, quantity, cost, supplier, note, item_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(date, item.name_ar, qty, cost, input.supplier || null, input.note || null, input.item_id)
+      purchaseId = info.lastInsertRowid as number
     })
-    tx()
-    return db.prepare('SELECT * FROM items WHERE id = ?').get(input.item_id) as Item
+    txFn()
+    const updatedItem = db.prepare('SELECT * FROM items WHERE id = ?').get(input.item_id) as Item
+    return { item: updatedItem, purchase_id: purchaseId }
+  },
+
+  // Reverse a restock — subtracts the purchase quantity from item.stock_qty
+  // and hard-deletes the inventory_purchases row. Used by Ctrl+Z undo when
+  // the last action was «+ تزويد». Stock is allowed to go negative (matches
+  // the negative-stock-allowed policy elsewhere).
+  unrestock(purchaseId: ID): void {
+    const db = getDb()
+    const row = db
+      .prepare('SELECT item_id, quantity FROM inventory_purchases WHERE id = ?')
+      .get(purchaseId) as { item_id: ID | null; quantity: number } | undefined
+    if (!row) return
+    db.transaction(() => {
+      if (row.item_id != null) {
+        db.prepare('UPDATE items SET stock_qty = stock_qty - ? WHERE id = ?').run(
+          row.quantity,
+          row.item_id
+        )
+      }
+      db.prepare('DELETE FROM inventory_purchases WHERE id = ?').run(purchaseId)
+    })()
   },
   suggestedForClient(clientId: ID): Array<{ item_id: ID; name: string; default_price: number; count: number }> {
     return getDb()

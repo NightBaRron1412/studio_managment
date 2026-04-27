@@ -7,6 +7,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 
 export function Inventory(): JSX.Element {
   const qc = useQueryClient()
@@ -47,11 +48,19 @@ export function Inventory(): JSX.Element {
   })
 
   const del = useMutation({
-    mutationFn: (id: number) => api.inventoryDelete(id),
-    onSuccess: () => {
+    mutationFn: (id: number) => api.inventoryDelete(id).then(() => id),
+    onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ['inventory'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success('تم الحذف')
+      pushUndo({
+        description: 'حذف فاتورة شراء',
+        undo: async () => {
+          await api.recycleRestore('inventory', id)
+          qc.invalidateQueries({ queryKey: ['inventory'] })
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+        }
+      })
+      toast.success('تم الحذف (Ctrl+Z للتراجع)')
     }
   })
 

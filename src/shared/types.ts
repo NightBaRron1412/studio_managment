@@ -309,7 +309,8 @@ export interface API {
     supplier?: string | null
     note?: string | null
     date?: string
-  }) => Promise<Item>
+  }) => Promise<{ item: Item; purchase_id: ID }>
+  itemUnrestock: (purchaseId: ID) => Promise<void>
 
   // Staff
   staffList: (opts?: { only_active?: boolean }) => Promise<Staff[]>
@@ -324,6 +325,7 @@ export interface API {
   transactionUpdate: (id: ID, input: TransactionInput) => Promise<TransactionWithLines>
   transactionDelete: (id: ID) => Promise<void>
   transactionMarkPaid: (id: ID, additional: number) => Promise<TransactionWithLines>
+  paymentDelete: (id: ID) => Promise<TransactionWithLines | null>
   debtorsList: () => Promise<DebtorRow[]>
 
   // Withdrawals

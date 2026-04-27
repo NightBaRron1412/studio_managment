@@ -7,6 +7,7 @@ import { Plus, Pencil, Trash2, Save, Database, Tag, Package, Building, Download,
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 import type { Category, Item, Staff } from '@shared/types'
 import { cn } from '@/lib/cn'
 
@@ -167,12 +168,23 @@ function ItemsTab(): JSX.Element {
         cost: Number(restockCost) || 0,
         supplier: restockSupplier.trim() || null
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['items'] })
       qc.invalidateQueries({ queryKey: ['items', 'all-settings'] })
       qc.invalidateQueries({ queryKey: ['low-stock'] })
       qc.invalidateQueries({ queryKey: ['inventory'] })
-      toast.success('تم تزويد المخزون')
+      const itemName = restockItem?.name_ar ?? 'صنف'
+      pushUndo({
+        description: `تزويد المخزون لـ ${itemName}`,
+        undo: async () => {
+          await api.itemUnrestock(result.purchase_id)
+          qc.invalidateQueries({ queryKey: ['items'] })
+          qc.invalidateQueries({ queryKey: ['items', 'all-settings'] })
+          qc.invalidateQueries({ queryKey: ['low-stock'] })
+          qc.invalidateQueries({ queryKey: ['inventory'] })
+        }
+      })
+      toast.success('تم تزويد المخزون (Ctrl+Z للتراجع)')
       setRestockItem(null)
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل التزويد')

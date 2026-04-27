@@ -7,6 +7,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 
 export function Withdrawals(): JSX.Element {
   const qc = useQueryClient()
@@ -42,11 +43,23 @@ export function Withdrawals(): JSX.Element {
   })
 
   const del = useMutation({
-    mutationFn: (id: number) => api.withdrawalDelete(id),
-    onSuccess: () => {
+    mutationFn: (id: number) => api.withdrawalDelete(id).then(() => id),
+    onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ['withdrawals'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success('تم حذف السحب')
+      qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+      qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+      pushUndo({
+        description: 'حذف سحب نقدي',
+        undo: async () => {
+          await api.recycleRestore('withdrawal', id)
+          qc.invalidateQueries({ queryKey: ['withdrawals'] })
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+          qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+          qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+        }
+      })
+      toast.success('تم حذف السحب (Ctrl+Z للتراجع)')
     }
   })
 

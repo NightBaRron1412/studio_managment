@@ -142,6 +142,7 @@ export function registerIpc(): void {
   ipcMain.handle('item:delete', safe((id: number) => ItemsRepo.delete(id)))
   ipcMain.handle('items:lowStock', safe(() => ItemsRepo.lowStock()))
   ipcMain.handle('item:restock', safe((input: any) => ItemsRepo.restock(input)))
+  ipcMain.handle('item:unrestock', safe((purchaseId: number) => ItemsRepo.unrestock(purchaseId)))
 
   // Staff
   ipcMain.handle('staff:list', safe((opts?: any) => StaffRepo.list(opts)))
@@ -156,6 +157,7 @@ export function registerIpc(): void {
   ipcMain.handle('transaction:update', safe((id: number, input: any) => TransactionsRepo.update(id, input)))
   ipcMain.handle('transaction:delete', safe((id: number) => TransactionsRepo.delete(id)))
   ipcMain.handle('transaction:markPaid', safe((id: number, additional: number) => TransactionsRepo.markPaid(id, additional)))
+  ipcMain.handle('payment:delete', safe((paymentId: number) => TransactionsRepo.removePayment(paymentId)))
   ipcMain.handle('transaction:markPickup', safe((id: number, status: any) => TransactionsRepo.markPickup(id, status)))
   ipcMain.handle('debtors:list', safe(() => TransactionsRepo.debtors()))
   ipcMain.handle('pickups:pending', safe(() => TransactionsRepo.pendingPickups()))

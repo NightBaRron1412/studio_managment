@@ -323,6 +323,24 @@ export const TransactionsRepo = {
     })()
   },
 
+  // Reverse a previous markPaid call by removing the specific payment row
+  // and decrementing the cached paid_amount on the transaction. Used by the
+  // global Ctrl+Z undo flow when the last action recorded a payment.
+  removePayment(paymentId: ID): TransactionWithLines | null {
+    const db = getDb()
+    const row = db
+      .prepare('SELECT transaction_id, amount FROM payments WHERE id = ?')
+      .get(paymentId) as { transaction_id: ID; amount: number } | undefined
+    if (!row) return null
+    db.transaction(() => {
+      db.prepare('DELETE FROM payments WHERE id = ?').run(paymentId)
+      db.prepare(
+        'UPDATE transactions SET paid_amount = MAX(0, paid_amount - ?), updated_at = datetime(\'now\') WHERE id = ?'
+      ).run(row.amount, row.transaction_id)
+    })()
+    return fetchWithLines(row.transaction_id)
+  },
+
   markPaid(id: ID, additional: number): TransactionWithLines {
     const db = getDb()
     const tx = fetchWithLines(id)

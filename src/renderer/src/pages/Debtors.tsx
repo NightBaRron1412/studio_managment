@@ -9,6 +9,7 @@ import { Phone, MessageCircle, User, Wallet, ChevronDown, ChevronUp, CheckCircle
 import { Dialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 
 export function Debtors(): JSX.Element {
   const { data: list = [], isLoading } = useQuery({
@@ -134,7 +135,7 @@ function DebtorTxRow({ tx, clientPhone }: { tx: TransactionWithLines; clientPhon
 
   const pay = useMutation({
     mutationFn: () => api.transactionMarkPaid(tx.id, Number(amount)),
-    onSuccess: () => {
+    onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: ['debtors'] })
       qc.invalidateQueries({ queryKey: ['client-history'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
@@ -142,6 +143,22 @@ function DebtorTxRow({ tx, clientPhone }: { tx: TransactionWithLines; clientPhon
       qc.invalidateQueries({ queryKey: ['transaction', String(tx.id)] })
       qc.invalidateQueries({ queryKey: ['cash-close-today'] })
       qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+      const newPayment = updated.payments[updated.payments.length - 1]
+      if (newPayment) {
+        pushUndo({
+          description: `تسوية ${fmtMoney(newPayment.amount)}`,
+          undo: async () => {
+            await api.paymentDelete(newPayment.id)
+            qc.invalidateQueries({ queryKey: ['debtors'] })
+            qc.invalidateQueries({ queryKey: ['client-history'] })
+            qc.invalidateQueries({ queryKey: ['transactions'] })
+            qc.invalidateQueries({ queryKey: ['dashboard'] })
+            qc.invalidateQueries({ queryKey: ['transaction', String(tx.id)] })
+            qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+            qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+          }
+        })
+      }
       toast.success('تم تحديث الدفع')
       setOpen(false)
       setAmount('')

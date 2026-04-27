@@ -7,6 +7,7 @@ import { Plus, Trash2, ChevronRight, ChevronLeft } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 
 export function Rent(): JSX.Element {
   const qc = useQueryClient()
@@ -45,11 +46,19 @@ export function Rent(): JSX.Element {
   })
 
   const del = useMutation({
-    mutationFn: (id: number) => api.rentPaymentDelete(id),
-    onSuccess: () => {
+    mutationFn: (id: number) => api.rentPaymentDelete(id).then(() => id),
+    onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ['rent'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success('تم الحذف')
+      pushUndo({
+        description: 'حذف دفعة إيجار',
+        undo: async () => {
+          await api.recycleRestore('rent', id)
+          qc.invalidateQueries({ queryKey: ['rent'] })
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+        }
+      })
+      toast.success('تم الحذف (Ctrl+Z للتراجع)')
     }
   })
 

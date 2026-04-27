@@ -10,6 +10,7 @@ import { api } from '@/lib/api'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { setFormatPrefs } from '@/lib/format'
 import { toast } from '@/store/toast'
+import { useUndoStore } from '@/store/undo'
 
 export function Layout(): JSX.Element {
   const qc = useQueryClient()
@@ -46,6 +47,29 @@ export function Layout(): JSX.Element {
       } else if (cmd && e.key.toLowerCase() === 'h') {
         e.preventDefault()
         togglePrivacy()
+      } else if (cmd && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        // Ctrl+Z fires only when no input/textarea is focused — otherwise
+        // we'd hijack the browser's native text-edit undo and break
+        // typing in form fields.
+        const target = e.target as HTMLElement | null
+        const tag = (target?.tagName || '').toLowerCase()
+        const isEditable =
+          tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable
+        if (isEditable) return
+        e.preventDefault()
+        const entry = useUndoStore.getState().pop()
+        if (!entry) {
+          toast.info('لا يوجد إجراء يمكن التراجع عنه')
+          return
+        }
+        entry
+          .undo()
+          .then(() => toast.success(`تم التراجع: ${entry.description}`))
+          .catch((err) =>
+            toast.error(
+              `فشل التراجع: ${err instanceof Error ? err.message : 'خطأ غير معروف'}`
+            )
+          )
       }
     }
     window.addEventListener('keydown', onKey)

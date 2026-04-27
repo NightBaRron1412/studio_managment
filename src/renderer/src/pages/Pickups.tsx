@@ -8,6 +8,7 @@ import { Package, CheckCircle2, Clock, MessageCircle, AlertTriangle, Wallet, Ale
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Dialog } from '@/components/ui/Dialog'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 import { cn } from '@/lib/cn'
 import type { Transaction } from '@shared/types'
 
@@ -23,13 +24,29 @@ export function Pickups(): JSX.Element {
   const overdue = list.filter((t) => t.pickup_promised_date && t.pickup_promised_date < today)
 
   const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: 'ready' | 'delivered' }) =>
-      api.transactionMarkPickup(id, status),
-    onSuccess: () => {
+    mutationFn: ({
+      id,
+      status,
+      previousStatus
+    }: {
+      id: number
+      status: 'ready' | 'delivered'
+      previousStatus: 'pending' | 'ready' | 'delivered' | null
+    }) => api.transactionMarkPickup(id, status).then((tx) => ({ tx, previousStatus, id })),
+    onSuccess: ({ id, previousStatus }) => {
       qc.invalidateQueries({ queryKey: ['pickups'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
-      toast.success('تم التحديث')
+      pushUndo({
+        description: 'تغيير حالة الطلب',
+        undo: async () => {
+          await api.transactionMarkPickup(id, previousStatus)
+          qc.invalidateQueries({ queryKey: ['pickups'] })
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+          qc.invalidateQueries({ queryKey: ['transactions'] })
+        }
+      })
+      toast.success('تم التحديث (Ctrl+Z للتراجع)')
     }
   })
 
@@ -48,14 +65,22 @@ export function Pickups(): JSX.Element {
 
   const payAndDeliver = useMutation({
     mutationFn: async () => {
-      if (!unpaidTx) return
+      if (!unpaidTx) return null
       const amt = Number(payAmount) || 0
+      let newPaymentId: number | null = null
       if (amt > 0) {
-        await api.transactionMarkPaid(unpaidTx.id, amt)
+        const updated = await api.transactionMarkPaid(unpaidTx.id, amt)
+        const last = updated.payments[updated.payments.length - 1]
+        if (last) newPaymentId = last.id
       }
       await api.transactionMarkPickup(unpaidTx.id, 'delivered')
+      return {
+        txId: unpaidTx.id,
+        previousStatus: unpaidTx.pickup_status,
+        newPaymentId
+      }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['pickups'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
@@ -63,7 +88,34 @@ export function Pickups(): JSX.Element {
       qc.invalidateQueries({ queryKey: ['transaction', String(unpaidTx?.id)] })
       qc.invalidateQueries({ queryKey: ['cash-close-today'] })
       qc.invalidateQueries({ queryKey: ['cash-close-list'] })
-      toast.success(Number(payAmount) > 0 ? 'تم تسجيل الدفعة وتسليم الطلب' : 'تم تسليم الطلب')
+      // Undo reverses both legs of the operation: removes the payment row
+      // (if one was created) AND restores the pickup status to whatever it
+      // was before. Done in payment-then-pickup order so the UI sees
+      // intermediate states match the forward sequence.
+      if (result) {
+        const { txId, previousStatus, newPaymentId } = result
+        pushUndo({
+          description:
+            newPaymentId != null ? 'تسجيل الدفعة وتسليم الطلب' : 'تسليم الطلب',
+          undo: async () => {
+            if (newPaymentId != null) {
+              await api.paymentDelete(newPaymentId)
+            }
+            await api.transactionMarkPickup(txId, previousStatus)
+            qc.invalidateQueries({ queryKey: ['pickups'] })
+            qc.invalidateQueries({ queryKey: ['dashboard'] })
+            qc.invalidateQueries({ queryKey: ['transactions'] })
+            qc.invalidateQueries({ queryKey: ['debtors'] })
+            qc.invalidateQueries({ queryKey: ['transaction', String(txId)] })
+            qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+            qc.invalidateQueries({ queryKey: ['cash-close-list'] })
+          }
+        })
+      }
+      toast.success(
+        (Number(payAmount) > 0 ? 'تم تسجيل الدفعة وتسليم الطلب' : 'تم تسليم الطلب') +
+          ' (Ctrl+Z للتراجع)'
+      )
       closeUnpaid()
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحفظ')
@@ -75,7 +127,7 @@ export function Pickups(): JSX.Element {
       setUnpaidTx(t)
       setPayAmount(rem.toFixed(2))
     } else {
-      setStatus.mutate({ id: t.id, status: 'delivered' })
+      setStatus.mutate({ id: t.id, status: 'delivered', previousStatus: t.pickup_status })
     }
   }
 
@@ -193,7 +245,7 @@ export function Pickups(): JSX.Element {
                       {t.pickup_status !== 'ready' && (
                         <button
                           className="btn-secondary btn-sm"
-                          onClick={() => setStatus.mutate({ id: t.id, status: 'ready' })}
+                          onClick={() => setStatus.mutate({ id: t.id, status: 'ready', previousStatus: t.pickup_status })}
                           title="جاهز للاستلام"
                         >
                           <Package size={14} />

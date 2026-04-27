@@ -8,6 +8,7 @@ import { ArrowRight, Pencil, Trash2, Phone, MapPin, FileText, Receipt, User } fr
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
+import { pushUndo } from '@/store/undo'
 
 export function ClientProfile(): JSX.Element {
   const { id } = useParams<{ id: string }>()
@@ -59,7 +60,14 @@ export function ClientProfile(): JSX.Element {
     mutationFn: () => api.clientDelete(cid),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] })
-      toast.success('تم حذف العميل')
+      pushUndo({
+        description: `حذف العميل ${client?.name ?? ''}`,
+        undo: async () => {
+          await api.recycleRestore('client', cid)
+          qc.invalidateQueries({ queryKey: ['clients'] })
+        }
+      })
+      toast.success('تم حذف العميل (Ctrl+Z للتراجع)')
       nav('/clients')
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحذف')
