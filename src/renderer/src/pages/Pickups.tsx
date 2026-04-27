@@ -60,6 +60,9 @@ export function Pickups(): JSX.Element {
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['debtors'] })
+      qc.invalidateQueries({ queryKey: ['transaction', String(unpaidTx?.id)] })
+      qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+      qc.invalidateQueries({ queryKey: ['cash-close-list'] })
       toast.success(Number(payAmount) > 0 ? 'تم تسجيل الدفعة وتسليم الطلب' : 'تم تسليم الطلب')
       closeUnpaid()
     },

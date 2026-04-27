@@ -140,6 +140,8 @@ function DebtorTxRow({ tx, clientPhone }: { tx: TransactionWithLines; clientPhon
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['transaction', String(tx.id)] })
+      qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+      qc.invalidateQueries({ queryKey: ['cash-close-list'] })
       toast.success('تم تحديث الدفع')
       setOpen(false)
       setAmount('')

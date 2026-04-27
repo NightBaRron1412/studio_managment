@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.2.1] — 2026-04-27
+
+### Fixed
+- 💵 **تقفيلة اليوم now refreshes immediately when you record a payment** from the Pickups, Debtors, or Transaction Detail page. The 1.2.0 payment-ledger change correctly persisted the payment dated today, but the cash-close view kept showing its stale cached number until you navigated away and back. All three payment call sites now invalidate the `cash-close-today` and `cash-close-list` queries on success.
+
+---
+
 ## [1.2.0] — 2026-04-21
 
 ### Added — payments ledger (correct multi-day cash flow)

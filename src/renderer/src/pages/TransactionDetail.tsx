@@ -73,6 +73,8 @@ export function TransactionDetail(): JSX.Element {
       qc.invalidateQueries({ queryKey: ['debtors'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['cash-close-today'] })
+      qc.invalidateQueries({ queryKey: ['cash-close-list'] })
       toast.success('تم تحديث الدفع')
       setPayOpen(false)
       setPayAmount('')

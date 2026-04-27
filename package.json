@@ -1,7 +1,7 @@
 {
   "name": "studio-manager",
   "productName": "نظام إدارة مبيعات الاستوديو",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "نظام إدارة مبيعات الاستوديو - تتبع المعاملات، العملاء، الإيجار، والمخزون",
   "main": "out/main/index.js",
   "author": {
