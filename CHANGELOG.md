@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.4.0] — 2026-04-27
+
+### Added — test suite + CI
+- 🧪 **Vitest harness** running against an in-memory SQLite (the same migration + seed as a real first-launch). 22 tests across 4 files cover the critical paths and pin every recently-fixed bug as a regression test.
+- 🤖 **GitHub Actions workflow** runs typecheck + tests on every push to `main` and every PR. Red tests fail the build.
+- ⚙️ **`npm test` / `npm run test:watch`** — `pretest` rebuilds better-sqlite3 against Node so the native module loads outside of Electron.
+
+### Coverage
+- **Transactions**: create with stock decrement + initial payment row, آجل skips the payment row, stock-going-negative warning, markPaid caps + dates today, update preserves later payments, delete restores stock + soft-deletes, removePayment reverses.
+- **Cash close**: cash-in by payment date (multi-day cash-flow correctness), non-cash methods excluded, soft-deleted excluded.
+- **Regressions** (so they never come back): backfill is one-shot per database (1.1.5/1.1.6), payment dates use local time not UTC (1.2.0), edit cannot retroactively undo a recorded payment (1.2.0).
+
+### Refactor
+- `initDb(path?)` now accepts an optional path so tests can use `:memory:` without touching the user's real database. Production behaviour unchanged.
+
+---
+
 ## [1.3.0] — 2026-04-27
 
 ### Added — global Ctrl+Z undo

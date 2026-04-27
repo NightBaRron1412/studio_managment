@@ -21,8 +21,10 @@ function runBatch(d: Database.Database, sql: string): void {
   fn.call(d, sql)
 }
 
-export function initDb(): Database.Database {
-  const path = getDbPath()
+export function initDb(customPath?: string): Database.Database {
+  // Tests pass ':memory:' (or a tmp file) so they can run the same migrate
+  // and seedIfEmpty path without touching the user's real database.
+  const path = customPath ?? getDbPath()
   db = new Database(path)
   db.pragma('journal_mode = WAL')
   // synchronous=FULL fsyncs every commit so a hard PC shutdown after an
