@@ -6,10 +6,10 @@ describe('test harness', () => {
   beforeEach(() => freshDb())
 
   it('opens an in-memory db with the schema migrated', () => {
-    const tables = getDb()
+    const rows = getDb()
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-      .all()
-      .map((r: { name: string }) => r.name)
+      .all() as Array<{ name: string }>
+    const tables = rows.map((r) => r.name)
     expect(tables).toContain('transactions')
     expect(tables).toContain('payments')
     expect(tables).toContain('items')

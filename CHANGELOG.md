@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.4.1] — 2026-04-27
+
+### Fixed (CI)
+- 🛠️ **Tests CI workflow now typechecks cleanly.** `tsconfig.node.json` was including `src/main/**/*.ts` (which pulled in the new `__tests__` files) but didn't include the `tests/` helpers they import — TypeScript correctly refused. Added `tests/**/*.ts` and `vitest.config.ts` to the include set.
+- 🧰 **`smoke.test.ts` typed the `.all()` result properly** — better-sqlite3 returns `unknown[]`, so casting must happen on the array, not in the `.map` callback.
+
+---
+
 ## [1.4.0] — 2026-04-27
 
 ### Added — test suite + CI
