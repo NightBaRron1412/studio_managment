@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
-import { fmtMoney, fmtDateLong } from '@/lib/format'
+import { fmtMoney, fmtDateLong, fmtDateShort } from '@/lib/format'
 import {
   ArrowRight,
   Pencil,
@@ -247,6 +247,23 @@ export function TransactionDetail(): JSX.Element {
                 <Wallet size={16} />
                 تسجيل دفعة
               </button>
+            )}
+
+            {tx.payments && tx.payments.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-bg-subtle">
+                <div className="text-xs font-bold text-ink-muted mb-2">سجل الدفعات</div>
+                <ul className="space-y-1">
+                  {tx.payments.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex justify-between items-center text-sm py-1"
+                    >
+                      <span className="num text-ink-muted">{fmtDateShort(p.date)}</span>
+                      <span className="num font-bold text-good">{fmtMoney(p.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
 

@@ -22,14 +22,26 @@ export const ReportsRepo = {
     const monthStart = monthStartStr()
     const monthEnd = monthEndStr()
 
+        // Dashboard income = money actually received on those days, summed
+    // from the payments ledger by payment.date (not the underlying sale's
+    // date). This matches how cash-close and the Reports page compute
+    // income, so all three views agree.
     const incomeToday =
       (db
-        .prepare('SELECT COALESCE(SUM(total),0) AS s FROM transactions WHERE deleted_at IS NULL AND date = ?')
+        .prepare(
+          `SELECT COALESCE(SUM(p.amount),0) AS s
+           FROM payments p
+           JOIN transactions t ON t.id = p.transaction_id
+           WHERE t.deleted_at IS NULL AND p.date = ?`
+        )
         .get(today) as { s: number }).s ?? 0
     const incomeMonth =
       (db
         .prepare(
-          'SELECT COALESCE(SUM(total),0) AS s FROM transactions WHERE deleted_at IS NULL AND date >= ? AND date <= ?'
+          `SELECT COALESCE(SUM(p.amount),0) AS s
+           FROM payments p
+           JOIN transactions t ON t.id = p.transaction_id
+           WHERE t.deleted_at IS NULL AND p.date >= ? AND p.date <= ?`
         )
         .get(monthStart, monthEnd) as { s: number }).s ?? 0
     const txCountToday =
@@ -128,16 +140,21 @@ export const ReportsRepo = {
     const prevWeekStart = new Date(prevWeekEnd)
     prevWeekStart.setDate(prevWeekStart.getDate() - 6)
     const prevWeekStartStr = prevWeekStart.toISOString().slice(0, 10)
+    // Same payments-based aggregation for the weekly trend chart.
     const incomeWeek = (db
       .prepare(
-        `SELECT COALESCE(SUM(total),0) AS s FROM transactions
-         WHERE deleted_at IS NULL AND date >= ? AND date <= ?`
+        `SELECT COALESCE(SUM(p.amount),0) AS s
+         FROM payments p
+         JOIN transactions t ON t.id = p.transaction_id
+         WHERE t.deleted_at IS NULL AND p.date >= ? AND p.date <= ?`
       )
       .get(weekStartStr, today) as { s: number }).s
     const incomeWeekPrev = (db
       .prepare(
-        `SELECT COALESCE(SUM(total),0) AS s FROM transactions
-         WHERE deleted_at IS NULL AND date >= ? AND date <= ?`
+        `SELECT COALESCE(SUM(p.amount),0) AS s
+         FROM payments p
+         JOIN transactions t ON t.id = p.transaction_id
+         WHERE t.deleted_at IS NULL AND p.date >= ? AND p.date <= ?`
       )
       .get(prevWeekStartStr, prevWeekEndStr) as { s: number }).s
 
@@ -187,29 +204,71 @@ export const ReportsRepo = {
     }
     const w = `WHERE ${where.join(' AND ')}`
 
+    // tx_count is "invoices created in this date range" — counted on the
+    // transaction's own date and using the same filters.
+    const txCountRow = db
+      .prepare(`SELECT COUNT(*) AS c FROM transactions t ${w}`)
+      .get(...params) as { c: number }
+
+    // Income aggregations now sum the payments table by the payment's own
+    // date — so a sale created on Jan 1 with 30 paid then and 70 paid on
+    // Jan 5 contributes 30 to Jan 1 and 70 to Jan 5. Date filters apply
+    // to payment.date; non-date filters still apply to the underlying
+    // transaction (client, staff, etc.) via JOIN.
+    const paymentsWhere: string[] = ['t.deleted_at IS NULL']
+    const paymentsParams: (string | number)[] = []
+    if (filters.date_from) {
+      paymentsWhere.push('p.date >= ?')
+      paymentsParams.push(filters.date_from)
+    }
+    if (filters.date_to) {
+      paymentsWhere.push('p.date <= ?')
+      paymentsParams.push(filters.date_to)
+    }
+    if (filters.client_id) {
+      paymentsWhere.push('t.client_id = ?')
+      paymentsParams.push(filters.client_id)
+    }
+    if (filters.staff_name) {
+      paymentsWhere.push('t.staff_name = ?')
+      paymentsParams.push(filters.staff_name)
+    }
+    const pw = `WHERE ${paymentsWhere.join(' AND ')}`
+
     const incomeRow = db
-      .prepare(`SELECT COALESCE(SUM(total),0) AS s, COUNT(*) AS c FROM transactions t ${w}`)
-      .get(...params) as { s: number; c: number }
+      .prepare(
+        `SELECT COALESCE(SUM(p.amount),0) AS s
+         FROM payments p
+         JOIN transactions t ON t.id = p.transaction_id
+         ${pw}`
+      )
+      .get(...paymentsParams) as { s: number }
 
     const byDay = db
       .prepare(
-        `SELECT t.date AS date, COALESCE(SUM(t.total),0) AS income, COUNT(*) AS tx_count
-         FROM transactions t ${w}
-         GROUP BY t.date
-         ORDER BY t.date ASC`
+        `SELECT p.date AS date,
+                COALESCE(SUM(p.amount), 0) AS income,
+                COUNT(DISTINCT p.transaction_id) AS tx_count
+         FROM payments p
+         JOIN transactions t ON t.id = p.transaction_id
+         ${pw}
+         GROUP BY p.date
+         ORDER BY p.date ASC`
       )
-      .all(...params) as { date: string; income: number; tx_count: number }[]
+      .all(...paymentsParams) as { date: string; income: number; tx_count: number }[]
 
     const byPaymentMethod = db
       .prepare(
-        `SELECT COALESCE(t.payment_method, 'بدون') AS method,
-                COALESCE(SUM(t.total), 0) AS total,
+        `SELECT COALESCE(p.payment_method, t.payment_method, 'بدون') AS method,
+                COALESCE(SUM(p.amount), 0) AS total,
                 COUNT(*) AS count
-         FROM transactions t ${w}
+         FROM payments p
+         JOIN transactions t ON t.id = p.transaction_id
+         ${pw}
          GROUP BY method
          ORDER BY total DESC`
       )
-      .all(...params) as { method: string; total: number; count: number }[]
+      .all(...paymentsParams) as { method: string; total: number; count: number }[]
 
     const itemWhere: string[] = [...where]
     const itemParams = [...params]
@@ -293,7 +352,7 @@ export const ReportsRepo = {
       rent_total: rentTotal,
       inventory_total: invTotal,
       net_total: incomeRow.s - wdTotal - invTotal - rentTotal,
-      tx_count: incomeRow.c,
+      tx_count: txCountRow.c,
       by_day: byDay,
       by_item: byItem,
       by_category: byCategory,

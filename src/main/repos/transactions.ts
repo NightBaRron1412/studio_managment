@@ -5,8 +5,19 @@ import type {
   TransactionLine,
   TransactionWithLines,
   TransactionInput,
-  DebtorRow
+  DebtorRow,
+  Payment
 } from '@shared/types'
+
+// Local helpers — payments live in their own table and back the
+// denormalized transactions.paid_amount cache. All transaction mutations
+// must keep the two in sync.
+
+function fetchPayments(txId: ID): Payment[] {
+  return getDb()
+    .prepare('SELECT * FROM payments WHERE transaction_id = ? ORDER BY date ASC, id ASC')
+    .all(txId) as Payment[]
+}
 
 function nextTransactionNo(): string {
   const db = getDb()
@@ -40,9 +51,13 @@ function fetchLines(txId: ID): TransactionLine[] {
     .all(txId) as TransactionLine[]
 }
 
-function withRemaining(tx: Transaction, lines: TransactionLine[]): TransactionWithLines {
+function withRemaining(
+  tx: Transaction,
+  lines: TransactionLine[],
+  payments: Payment[]
+): TransactionWithLines {
   const remaining = Math.max(0, Number((tx.total - tx.paid_amount).toFixed(2)))
-  return { ...tx, lines, remaining, is_paid: remaining <= 0.0001 }
+  return { ...tx, lines, payments, remaining, is_paid: remaining <= 0.0001 }
 }
 
 // Apply a stock delta (sign = -1 for sale, +1 for restore on delete/edit) to
@@ -83,7 +98,7 @@ function fetchWithLines(id: ID): TransactionWithLines | null {
     )
     .get(id) as Transaction | undefined
   if (!tx) return null
-  return withRemaining(tx, fetchLines(id))
+  return withRemaining(tx, fetchLines(id), fetchPayments(id))
 }
 
 interface TotalsBreakdown {
@@ -201,6 +216,14 @@ export const TransactionsRepo = {
         const sub = Number(l.quantity) * Number(l.unit_price)
         insLine.run(txId, l.item_id, l.custom_name, Number(l.quantity), Number(l.unit_price), sub, l.note ?? null)
       }
+      // Initial payment row — dated the same day as the sale, since this
+      // is the money taken at the counter when the order was created.
+      if (paid > 0) {
+        db.prepare(
+          `INSERT INTO payments (transaction_id, date, amount, payment_method, note)
+           VALUES (?, ?, ?, ?, ?)`
+        ).run(txId, input.date, paid, input.payment_method ?? null, 'الدفعة الأولى عند تسجيل المعاملة')
+      }
       warnings = applyStockDelta(db, input.lines, -1)
       return txId
     })()
@@ -214,11 +237,28 @@ export const TransactionsRepo = {
     let warnings: Array<{ name: string; stock: number }> = []
     db.transaction(() => {
       const t = computeTotals(input)
-      const paid = Math.min(Math.max(0, Number(input.paid_amount) || 0), t.total)
+      const requestedPaid = Math.max(0, Number(input.paid_amount) || 0)
       // Restore stock from the previous version of this transaction's lines
       // before applying the new lines, so a reorder/quantity-edit nets out.
       const oldLines = fetchLines(id)
       applyStockDelta(db, oldLines, +1)
+
+      // Preserve the audit trail of "تسجيل دفعة" payments made after the
+      // original sale. The earliest payment is treated as the "initial"
+      // payment (created when the sale was recorded). Editing the sale
+      // adjusts only that initial payment, leaving later ones intact.
+      // The new paid_amount is floored at the sum of subsequent payments
+      // — you can't retroactively undo a payment you've already recorded.
+      const allPayments = db
+        .prepare(
+          'SELECT id, date, amount FROM payments WHERE transaction_id = ? ORDER BY date ASC, id ASC'
+        )
+        .all(id) as Array<{ id: ID; date: string; amount: number }>
+      const initialPayment = allPayments[0] ?? null
+      const subsequentPayments = allPayments.slice(1)
+      const subsequentTotal = subsequentPayments.reduce((s, p) => s + p.amount, 0)
+      const cappedPaid = Math.min(t.total, Math.max(requestedPaid, subsequentTotal))
+
       db.prepare(
         `UPDATE transactions SET date = ?, client_id = ?, staff_name = ?, notes = ?, payment_method = ?,
          subtotal = ?, discount_type = ?, discount_value = ?, discount_amount = ?,
@@ -238,11 +278,25 @@ export const TransactionsRepo = {
         Number(input.vat_percent) || 0,
         t.vat_amount,
         t.total,
-        paid,
+        cappedPaid,
         input.pickup_status ?? null,
         input.pickup_promised_date ?? null,
         id
       )
+
+      // Reconcile the initial payment row with the new sale date and the
+      // remainder of paid_amount that isn't already covered by later payments.
+      const initialAmount = Number((cappedPaid - subsequentTotal).toFixed(2))
+      if (initialPayment) {
+        db.prepare('DELETE FROM payments WHERE id = ?').run(initialPayment.id)
+      }
+      if (initialAmount > 0) {
+        db.prepare(
+          `INSERT INTO payments (transaction_id, date, amount, payment_method, note)
+           VALUES (?, ?, ?, ?, ?)`
+        ).run(id, input.date, initialAmount, input.payment_method ?? null, 'الدفعة الأولى عند تسجيل المعاملة')
+      }
+
       db.prepare('DELETE FROM transaction_items WHERE transaction_id = ?').run(id)
       const insLine = db.prepare(
         `INSERT INTO transaction_items (transaction_id, item_id, custom_name, quantity, unit_price, subtotal, note)
@@ -274,8 +328,23 @@ export const TransactionsRepo = {
     const tx = fetchWithLines(id)
     if (!tx) throw new Error('المعاملة غير موجودة')
     const add = Math.max(0, Number(additional) || 0)
-    const newPaid = Math.min(tx.total, tx.paid_amount + add)
-    db.prepare(`UPDATE transactions SET paid_amount = ?, updated_at = datetime('now') WHERE id = ?`).run(newPaid, id)
+    // Cap at the actual remaining balance — markPaid never overpays.
+    const capped = Math.min(add, Math.max(0, tx.total - tx.paid_amount))
+    if (capped <= 0) return tx
+    // Use local-timezone date (matches todayISO() in the renderer) so
+    // the payment lands on the day the owner actually received it,
+    // even close to midnight UTC.
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    db.transaction(() => {
+      db.prepare(
+        `INSERT INTO payments (transaction_id, date, amount, payment_method, note)
+         VALUES (?, ?, ?, ?, ?)`
+      ).run(id, today, capped, tx.payment_method ?? null, null)
+      db.prepare(
+        `UPDATE transactions SET paid_amount = paid_amount + ?, updated_at = datetime('now') WHERE id = ?`
+      ).run(capped, id)
+    })()
     return fetchWithLines(id)!
   },
 
@@ -314,7 +383,7 @@ export const TransactionsRepo = {
          ORDER BY t.date DESC, t.id DESC`
       )
       .all(clientId) as Transaction[]
-    return txs.map((t) => withRemaining(t, fetchLines(t.id)))
+    return txs.map((t) => withRemaining(t, fetchLines(t.id), fetchPayments(t.id)))
   },
 
   debtors(): DebtorRow[] {

@@ -223,6 +223,27 @@ function migrate(d: Database.Database): void {
   addColumnIfMissing(d, 'items', 'low_stock_threshold', 'low_stock_threshold REAL NOT NULL DEFAULT 0')
   addColumnIfMissing(d, 'inventory_purchases', 'item_id', 'item_id INTEGER REFERENCES items(id) ON DELETE SET NULL')
 
+  // Payments ledger — replaces the single transactions.paid_amount column
+  // for tracking *when* money actually came in. paid_amount stays as a
+  // denormalized cache so existing queries (debtors, transaction
+  // remaining) keep working, but cash-close and reports now sum payments
+  // rows by their own date — so a partial sale paid off later credits the
+  // day the money was received, not the day the sale was made.
+  runBatch(
+    d,
+    `CREATE TABLE IF NOT EXISTS payments (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+       date TEXT NOT NULL,
+       amount REAL NOT NULL,
+       payment_method TEXT,
+       note TEXT,
+       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+     );
+     CREATE INDEX IF NOT EXISTS idx_payments_tx ON payments(transaction_id);
+     CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date);`
+  )
+
   // Staff list — replaces free-text staff_name on transactions
   runBatch(
     d,
@@ -277,6 +298,29 @@ function migrate(d: Database.Database): void {
     d.prepare(
       `INSERT OR REPLACE INTO settings (key, value)
        VALUES ('paid_subtotal_backfill_done', '1')`
+    ).run()
+  }
+
+  // One-shot payments backfill — every transaction with paid_amount > 0
+  // that doesn't already have a payment row gets one dated to the
+  // transaction's own date. Idempotent via the settings flag AND the
+  // NOT EXISTS clause, so re-running it would never double-count even
+  // if the flag was deleted.
+  const paymentsFlag = d
+    .prepare(`SELECT value FROM settings WHERE key = 'payments_backfill_done'`)
+    .get() as { value: string } | undefined
+  if (!paymentsFlag) {
+    d.prepare(
+      `INSERT INTO payments (transaction_id, date, amount, payment_method, note)
+       SELECT t.id, t.date, t.paid_amount, t.payment_method,
+              'تم تحويلها تلقائياً من السجل القديم'
+       FROM transactions t
+       WHERE t.paid_amount > 0
+         AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.transaction_id = t.id)`
+    ).run()
+    d.prepare(
+      `INSERT OR REPLACE INTO settings (key, value)
+       VALUES ('payments_backfill_done', '1')`
     ).run()
   }
 

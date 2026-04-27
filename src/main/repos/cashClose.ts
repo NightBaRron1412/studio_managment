@@ -4,14 +4,19 @@ import type { CashClose, CashCloseToday } from '@shared/types'
 export const CashCloseRepo = {
   todayInfo(date: string): CashCloseToday {
     const db = getDb()
-    // Cash-in: payments received today on cash transactions, plus any cash payments
-    // marked. We approximate with: paid_amount on transactions whose payment_method = 'نقدي'
-    // and date = today. Plus any other cash adjustments NOT modeled — keep simple.
+    // Cash-in: every cash payment whose date = today, regardless of when
+    // the underlying sale was made. A sale created on Jan 1 with 30 paid
+    // up front and 70 paid on Jan 5 now correctly contributes 30 to Jan
+    // 1's cash close and 70 to Jan 5's cash close — instead of the old
+    // bug where the Jan 5 payment was silently dropped.
     const cashRow = db
       .prepare(
-        `SELECT COALESCE(SUM(paid_amount), 0) AS s
-         FROM transactions
-         WHERE deleted_at IS NULL AND date = ? AND COALESCE(payment_method, '') = 'نقدي'`
+        `SELECT COALESCE(SUM(p.amount), 0) AS s
+         FROM payments p
+         JOIN transactions t ON t.id = p.transaction_id
+         WHERE t.deleted_at IS NULL
+           AND p.date = ?
+           AND COALESCE(p.payment_method, t.payment_method, '') = 'نقدي'`
       )
       .get(date) as { s: number }
     const wdRow = db

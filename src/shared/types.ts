@@ -101,11 +101,22 @@ export interface TransactionLine {
 
 export interface TransactionWithLines extends Transaction {
   lines: TransactionLine[]
+  payments: Payment[]
   remaining: number
   is_paid: boolean
   // Set by create/update when one or more lines drove a tracked item's
   // stock_qty to <= 0. Renderer uses this to surface a warning toast.
   negative_stock_items?: { name: string; stock: number }[]
+}
+
+export interface Payment {
+  id: ID
+  transaction_id: ID
+  date: string
+  amount: number
+  payment_method: string | null
+  note: string | null
+  created_at: string
 }
 
 export interface Withdrawal {

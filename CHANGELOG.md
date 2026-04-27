@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.2.0] — 2026-04-21
+
+### Added — payments ledger (correct multi-day cash flow)
+- 💸 **Every payment is now a row in a new `payments` table**, not just a number on the transaction. A sale created on Jan 1 with 30 paid up front and 70 paid on Jan 5 now correctly contributes **30 to Jan 1's cash close** and **70 to Jan 5's cash close** — instead of the old behaviour where the Jan 5 payment was silently dropped from any day's totals.
+- 📜 **Payment history shown on the transaction detail page** — full audit trail under the المدفوع / المتبقي card listing each payment's date and amount.
+
+### Changed
+- 📊 **Cash close, dashboard income, and Reports income now all aggregate from the payments ledger** by the payment's own date. The three views finally agree on what "money received today/this week/this month" means.
+- ✏️ **Editing a transaction preserves payment history** — only the original initial payment is reconciled to the new sale date and amount; later "تسجيل دفعة" entries stay intact. If you try to lower the paid amount below what's already been received via later payments, it's floored to the actual received total (you can't retroactively undo a recorded payment).
+
+### Database
+- New table: `payments(id, transaction_id, date, amount, payment_method, note, created_at)` with cascade-delete on transactions.
+- One-shot backfill: every existing transaction with `paid_amount > 0` gets one payment row dated to the transaction's own date — preserves your existing income totals exactly. Idempotent and gated by a `payments_backfill_done` flag.
+- `transactions.paid_amount` is kept as a denormalized cache so existing queries (debtors, remaining balances) keep working unchanged.
+
+---
+
 ## [1.1.9] — 2026-04-21
 
 ### Fixed
