@@ -5,6 +5,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.5.0] — 2026-04-29
+
+### Added — opening cash float
+- 💵 **«المبلغ الافتتاحي في الخزنة»** — تقفيلة اليوم now accounts for cash you leave in the drawer overnight as change for tomorrow's customers. The expected formula becomes:
+
+  ```
+  المتوقع = الافتتاحي + داخل − خارج
+  ```
+
+  The opening float **auto-fills from yesterday's actual count** (or whatever the most recent تقفيلة was), so you no longer see a daily "زيادة" discrepancy from leftover change. You can override it (e.g., if you took some home overnight) and the override is what carries forward to the next day.
+
+### Database
+- New column `cash_closes.opening_float` (auto-migrated, default 0). Existing closed days stay correct — they just record an explicit opening of 0.
+
+### Tests
+- 5 new tests pin the carry-forward, manual override, multi-day skip, and reopen-preserves-saved-value behaviour.
+
+---
+
 ## [1.4.1] — 2026-04-27
 
 ### Fixed (CI)

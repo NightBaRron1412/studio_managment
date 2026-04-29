@@ -10,6 +10,7 @@ import { toast } from '@/store/toast'
 export function CashClose(): JSX.Element {
   const qc = useQueryClient()
   const [actual, setActual] = useState('')
+  const [opening, setOpening] = useState('')
   const [note, setNote] = useState('')
 
   const { data: today, isLoading } = useQuery({
@@ -24,17 +25,30 @@ export function CashClose(): JSX.Element {
   useEffect(() => {
     if (today?.closed) {
       setActual(String(today.closed.actual_cash))
+      setOpening(String(today.closed.opening_float ?? 0))
       setNote(today.closed.note || '')
     } else if (today) {
+      // First time closing today: opening defaults to yesterday's actual
+      // (or 0 for the very first day). Expected starts at the suggested
+      // value which already includes the float.
+      setOpening(String(today.opening_float))
       setActual(String(today.expected_cash))
     }
   }, [today])
+
+  // Recompute the expected number live as the user adjusts the opening
+  // float — matches the same formula the repo uses on submit.
+  const openingNum = Number(opening) || 0
+  const liveExpected = Number(
+    (openingNum + (today?.cash_in ?? 0) - (today?.cash_out ?? 0)).toFixed(2)
+  )
 
   const submit = useMutation({
     mutationFn: () =>
       api.cashCloseSubmit({
         date: today?.date ?? new Date().toISOString().slice(0, 10),
         actual_cash: Number(actual) || 0,
+        opening_float: openingNum,
         note: note.trim() || null
       }),
     onSuccess: () => {
@@ -47,7 +61,7 @@ export function CashClose(): JSX.Element {
 
   if (isLoading || !today) return <div className="p-6 text-ink-muted">جارِ التحميل...</div>
 
-  const diff = Number(actual || 0) - today.expected_cash
+  const diff = Number(actual || 0) - liveExpected
   const diffColor = Math.abs(diff) < 0.01 ? 'text-good' : diff > 0 ? 'text-brand-700' : 'text-bad'
 
   return (
@@ -86,12 +100,26 @@ export function CashClose(): JSX.Element {
               </div>
             </div>
 
-            <div className="rounded-xl bg-bg-subtle p-4 mb-5">
-              <div className="flex items-center justify-between">
-                <span className="text-ink-muted">المبلغ المتوقع في الخزنة</span>
-                <span className="text-2xl font-extrabold num">{fmtMoney(today.expected_cash)}</span>
+            <div className="rounded-xl bg-bg-subtle p-4 mb-5 space-y-3">
+              <div>
+                <label className="label">المبلغ الافتتاحي في الخزنة (باقي الأمس)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  className="input num text-center"
+                  value={opening}
+                  onChange={(e) => setOpening(e.target.value)}
+                />
+                <div className="text-[10px] text-ink-muted mt-1">
+                  يُملأ تلقائياً بقيمة آخر تقفيلة. عدِّله إذا أخذت بعض النقود معك ليلة أمس.
+                </div>
               </div>
-              <div className="text-xs text-ink-muted mt-1">داخل − خارج</div>
+              <div className="flex items-center justify-between border-t border-bg pt-3">
+                <span className="text-ink-muted">المبلغ المتوقع في الخزنة</span>
+                <span className="text-2xl font-extrabold num">{fmtMoney(liveExpected)}</span>
+              </div>
+              <div className="text-xs text-ink-muted mt-1">الافتتاحي + داخل − خارج</div>
             </div>
 
             <div className="space-y-3">

@@ -99,7 +99,7 @@ This app is **purpose-built for photography studios**, **fully Arabic with prope
 - **حجوزات الجلسات** — sessions calendar with type, deposit, status; today/upcoming/past filters
 - **طلبات قيد التسليم** — pickup status (pending/ready/delivered) with overdue alerts
 - **تذكيرات** — to-do list with due dates and dashboard alerts
-- **تقفيلة اليوم** — end-of-day cash close with expected vs actual + difference history
+- **تقفيلة اليوم** — end-of-day cash close with opening float (carries over from yesterday's drawer), expected vs actual, and difference history
 
 ### 💸 Money Out
 - **سحوبات نقدية** — cash withdrawals with date, amount, person, reason

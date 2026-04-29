@@ -182,6 +182,7 @@ export type PickupStatus = 'pending' | 'ready' | 'delivered' | null
 export interface CashClose {
   id: ID
   date: string
+  opening_float: number
   expected_cash: number
   actual_cash: number
   difference: number
@@ -250,6 +251,9 @@ export interface DebtorRow {
 
 export interface CashCloseToday {
   date: string
+  // Cash carried over from yesterday's close (or 0 for the very first day,
+  // or whatever the user manually overrode the previous close to be).
+  opening_float: number
   expected_cash: number
   cash_in: number
   cash_out: number
@@ -347,7 +351,12 @@ export interface API {
 
   // Cash close
   cashCloseToday: () => Promise<CashCloseToday>
-  cashCloseSubmit: (input: { date: string; actual_cash: number; note: string | null }) => Promise<CashClose>
+  cashCloseSubmit: (input: {
+    date: string
+    actual_cash: number
+    opening_float?: number
+    note: string | null
+  }) => Promise<CashClose>
   cashCloseList: () => Promise<CashClose[]>
 
   // Recycle bin

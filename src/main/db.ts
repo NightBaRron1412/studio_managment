@@ -219,6 +219,10 @@ function migrate(d: Database.Database): void {
   addColumnIfMissing(d, 'transactions', 'pickup_promised_date', 'pickup_promised_date TEXT')
   addColumnIfMissing(d, 'transactions', 'pickup_delivered_at', 'pickup_delivered_at TEXT')
 
+  // Opening cash float on the daily close — money carried over from
+  // yesterday for change. Default 0 keeps existing closes correct.
+  addColumnIfMissing(d, 'cash_closes', 'opening_float', 'opening_float REAL NOT NULL DEFAULT 0')
+
   // Inventory tracking on items + purchase-to-item linking
   addColumnIfMissing(d, 'items', 'tracks_stock', 'tracks_stock INTEGER NOT NULL DEFAULT 0')
   addColumnIfMissing(d, 'items', 'stock_qty', 'stock_qty REAL NOT NULL DEFAULT 0')

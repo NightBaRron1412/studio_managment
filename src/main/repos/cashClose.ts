@@ -35,9 +35,27 @@ export const CashCloseRepo = {
     const closed = db
       .prepare('SELECT * FROM cash_closes WHERE date = ?')
       .get(date) as CashClose | undefined
-    const expected = Number(cashRow.s) - Number(wdRow.s) - Number(rentRow.s) - Number(invRow.s)
+    // Default opening_float = the most recent prior close's actual_cash.
+    // The studio leaves change in the drawer overnight; without this
+    // carry-over, that leftover cash would show as a daily "زيادة"
+    // discrepancy. If the user already saved today's close, prefer the
+    // value they set there instead of recalculating.
+    let openingFloat = 0
+    if (closed) {
+      openingFloat = Number(closed.opening_float ?? 0)
+    } else {
+      const prev = db
+        .prepare(
+          'SELECT actual_cash FROM cash_closes WHERE date < ? ORDER BY date DESC LIMIT 1'
+        )
+        .get(date) as { actual_cash: number } | undefined
+      openingFloat = prev ? Number(prev.actual_cash) : 0
+    }
+    const expected =
+      openingFloat + Number(cashRow.s) - Number(wdRow.s) - Number(rentRow.s) - Number(invRow.s)
     return {
       date,
+      opening_float: Number(openingFloat.toFixed(2)),
       expected_cash: Number(expected.toFixed(2)),
       cash_in: Number(cashRow.s),
       cash_out: Number(wdRow.s) + Number(rentRow.s) + Number(invRow.s),
@@ -47,19 +65,34 @@ export const CashCloseRepo = {
     }
   },
 
-  submit(input: { date: string; actual_cash: number; note: string | null }): CashClose {
+  submit(input: {
+    date: string
+    actual_cash: number
+    opening_float?: number
+    note: string | null
+  }): CashClose {
     const db = getDb()
     const info = CashCloseRepo.todayInfo(input.date)
-    const diff = Number((Number(input.actual_cash) - info.expected_cash).toFixed(2))
+    // Caller can override the carried-forward float (e.g., owner took
+    // some change home overnight). Falls back to the suggested default.
+    const opening =
+      input.opening_float != null
+        ? Number(input.opening_float)
+        : info.opening_float
+    const cashIn = info.cash_in
+    const cashOut = info.cash_out
+    const expected = Number((opening + cashIn - cashOut).toFixed(2))
+    const diff = Number((Number(input.actual_cash) - expected).toFixed(2))
     db.prepare(
-      `INSERT INTO cash_closes (date, expected_cash, actual_cash, difference, note)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO cash_closes (date, opening_float, expected_cash, actual_cash, difference, note)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(date) DO UPDATE SET
+         opening_float = excluded.opening_float,
          expected_cash = excluded.expected_cash,
          actual_cash = excluded.actual_cash,
          difference = excluded.difference,
          note = excluded.note`
-    ).run(input.date, info.expected_cash, Number(input.actual_cash), diff, input.note || null)
+    ).run(input.date, opening, expected, Number(input.actual_cash), diff, input.note || null)
     return db.prepare('SELECT * FROM cash_closes WHERE date = ?').get(input.date) as CashClose
   },
 
