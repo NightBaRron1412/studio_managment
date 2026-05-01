@@ -350,7 +350,13 @@ export interface API {
   inventoryDelete: (id: ID) => Promise<void>
 
   // Cash close
-  cashCloseToday: () => Promise<CashCloseToday>
+  cashCloseToday: (date?: string) => Promise<CashCloseToday>
+  cashCloseMissed: () => Promise<Array<{
+    date: string
+    cash_in: number
+    cash_out: number
+    suggested_actual: number
+  }>>
   cashCloseSubmit: (input: {
     date: string
     actual_cash: number

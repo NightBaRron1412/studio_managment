@@ -100,5 +100,68 @@ export const CashCloseRepo = {
     return getDb()
       .prepare('SELECT * FROM cash_closes ORDER BY date DESC LIMIT 90')
       .all() as CashClose[]
+  },
+
+  // Past dates (last 30 days, excluding today) that had any cash activity
+  // but no closing record. Surfaced on the dashboard + startup toast so
+  // owners who forgot to close last night can backfill it. Today is
+  // intentionally excluded — it's expected to be open while the day is
+  // in progress; only previous days that should already be closed count
+  // as "missed". A day with zero activity isn't surfaced either —
+  // there's nothing to count.
+  missedCloses(): Array<{
+    date: string
+    cash_in: number
+    cash_out: number
+    suggested_actual: number
+  }> {
+    const db = getDb()
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const horizon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30)
+    const horizonStr = `${horizon.getFullYear()}-${String(horizon.getMonth() + 1).padStart(2, '0')}-${String(horizon.getDate()).padStart(2, '0')}`
+    // Build the union of all dates with any cash activity in window,
+    // then filter to those without a corresponding cash_closes row.
+    const rows = db
+      .prepare(
+        `WITH activity_dates AS (
+           SELECT DISTINCT p.date AS d
+           FROM payments p
+           JOIN transactions t ON t.id = p.transaction_id
+           WHERE t.deleted_at IS NULL
+             AND COALESCE(p.payment_method, t.payment_method, '') = 'نقدي'
+             AND p.date >= ? AND p.date < ?
+           UNION
+           SELECT DISTINCT date AS d FROM withdrawals
+             WHERE deleted_at IS NULL AND date >= ? AND date < ?
+           UNION
+           SELECT DISTINCT payment_date AS d FROM rent_payments
+             WHERE deleted_at IS NULL AND payment_date >= ? AND payment_date < ?
+           UNION
+           SELECT DISTINCT date AS d FROM inventory_purchases
+             WHERE deleted_at IS NULL AND date >= ? AND date < ?
+         )
+         SELECT d AS date FROM activity_dates
+         WHERE d NOT IN (SELECT date FROM cash_closes)
+         ORDER BY d DESC
+         LIMIT 30`
+      )
+      .all(
+        horizonStr, today,
+        horizonStr, today,
+        horizonStr, today,
+        horizonStr, today
+      ) as Array<{ date: string }>
+    // For each missed date, pull the actual cash_in / cash_out so the
+    // dashboard card can show "30 in, 5 out" without the user clicking in.
+    return rows.map((r) => {
+      const info = CashCloseRepo.todayInfo(r.date)
+      return {
+        date: r.date,
+        cash_in: info.cash_in,
+        cash_out: info.cash_out,
+        suggested_actual: info.expected_cash
+      }
+    })
   }
 }

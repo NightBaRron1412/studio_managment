@@ -1,21 +1,30 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
-import { fmtMoney, fmtDateLong, fmtDateShort } from '@/lib/format'
-import { Calculator, ArrowDownCircle, ArrowUpCircle, History, Save } from 'lucide-react'
+import { fmtMoney, fmtDateLong, fmtDateShort, todayISO } from '@/lib/format'
+import { Calculator, ArrowDownCircle, ArrowUpCircle, History, Save, ChevronRight, ChevronLeft } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { toast } from '@/store/toast'
 
 export function CashClose(): JSX.Element {
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [actual, setActual] = useState('')
   const [opening, setOpening] = useState('')
   const [note, setNote] = useState('')
 
+  // Selected date — defaults to today, but the URL ?date= param lets the
+  // dashboard alert and the missed-close toast deep-link straight to a
+  // specific past day so the user can backfill it without manual nav.
+  const todayStr = todayISO()
+  const selectedDate = searchParams.get('date') || todayStr
+  const isToday = selectedDate === todayStr
+
   const { data: today, isLoading } = useQuery({
-    queryKey: ['cash-close-today'],
-    queryFn: () => api.cashCloseToday()
+    queryKey: ['cash-close-today', selectedDate],
+    queryFn: () => api.cashCloseToday(selectedDate)
   })
   const { data: history = [] } = useQuery({
     queryKey: ['cash-close-list'],
@@ -54,7 +63,8 @@ export function CashClose(): JSX.Element {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cash-close-today'] })
       qc.invalidateQueries({ queryKey: ['cash-close-list'] })
-      toast.success('تم تسجيل تقفيلة اليوم')
+      qc.invalidateQueries({ queryKey: ['cash-close-missed'] })
+      toast.success(isToday ? 'تم تسجيل تقفيلة اليوم' : `تم تسجيل تقفيلة ${fmtDateShort(today!.date)}`)
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'فشل الحفظ')
   })
@@ -67,9 +77,62 @@ export function CashClose(): JSX.Element {
   return (
     <>
       <PageHeader
-        title="تقفيلة اليوم"
+        title={isToday ? 'تقفيلة اليوم' : `تقفيلة ${fmtDateShort(today.date)}`}
         subtitle={fmtDateLong(today.date)}
       />
+
+      {/* Date navigation — lets the user backfill a day they forgot to
+          close. Future dates are blocked at the input level. The "اليوم"
+          button is a one-click reset to the current date. */}
+      <div className="card p-3 mb-4 flex flex-wrap items-center gap-2">
+        <button
+          className="btn-secondary btn-sm"
+          onClick={() => {
+            const d = new Date(today.date + 'T00:00:00')
+            d.setDate(d.getDate() - 1)
+            const prev = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            setSearchParams({ date: prev })
+          }}
+          title="اليوم السابق"
+        >
+          <ChevronRight size={16} />
+          السابق
+        </button>
+        <input
+          type="date"
+          className="input num text-center w-44"
+          dir="ltr"
+          max={todayStr}
+          value={selectedDate}
+          onChange={(e) => {
+            const v = e.target.value
+            if (!v) return
+            if (v > todayStr) return
+            if (v === todayStr) setSearchParams({})
+            else setSearchParams({ date: v })
+          }}
+        />
+        <button
+          className="btn-secondary btn-sm"
+          disabled={isToday}
+          onClick={() => {
+            const d = new Date(today.date + 'T00:00:00')
+            d.setDate(d.getDate() + 1)
+            const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            if (next > todayStr) setSearchParams({})
+            else setSearchParams({ date: next })
+          }}
+          title="اليوم التالي"
+        >
+          التالي
+          <ChevronLeft size={16} />
+        </button>
+        {!isToday && (
+          <button className="btn-primary btn-sm mr-auto" onClick={() => setSearchParams({})}>
+            ↻ اليوم
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">

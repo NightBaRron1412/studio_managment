@@ -83,7 +83,8 @@ const api = {
   inventoryDelete: (id: number) => call('inventory:delete', id),
 
   // Cash close
-  cashCloseToday: () => call('cashClose:today'),
+  cashCloseToday: (date?: string) => call('cashClose:today', date),
+  cashCloseMissed: () => call('cashClose:missed'),
   cashCloseSubmit: (input: unknown) => call('cashClose:submit', input),
   cashCloseList: () => call('cashClose:list'),
 

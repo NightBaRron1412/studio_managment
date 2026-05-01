@@ -106,6 +106,31 @@ export function Layout(): JSX.Element {
     toast.error(`⚠️ ${lowStockOnStart.length} صنف يحتاج تزويد: ${names}${more}`)
   }, [canShowStartupToast, lowStockOnStart])
 
+  // Same one-shot pattern for missed cash-closes — owner forgot to close
+  // last night, the toast nudges them on the next launch with a clickable
+  // dashboard alert ready to take them to the right day.
+  const missedCloseToastShown = useRef(false)
+  const { data: missedClosesOnStart = [] } = useQuery({
+    queryKey: ['cash-close-missed-startup'],
+    queryFn: () => api.cashCloseMissed(),
+    enabled: canShowStartupToast,
+    staleTime: Infinity
+  })
+  useEffect(() => {
+    if (!canShowStartupToast) return
+    if (missedCloseToastShown.current) return
+    if (missedClosesOnStart.length === 0) return
+    missedCloseToastShown.current = true
+    const dates = missedClosesOnStart
+      .slice(0, 3)
+      .map((m) => m.date)
+      .join('، ')
+    const more = missedClosesOnStart.length > 3 ? ` و${missedClosesOnStart.length - 3} غيرها` : ''
+    toast.error(
+      `📅 ${missedClosesOnStart.length} ${missedClosesOnStart.length === 1 ? 'يوم' : 'أيام'} لم يُقفَل: ${dates}${more}`
+    )
+  }, [canShowStartupToast, missedClosesOnStart])
+
   const togglePrivacy = useCallback(async (): Promise<void> => {
     const next = privacyMode ? 'false' : 'true'
     await api.settingSet('privacy_mode', next)

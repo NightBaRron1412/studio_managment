@@ -16,7 +16,8 @@ import {
   Calendar,
   PackageOpen,
   Bell,
-  TrendingDown
+  TrendingDown,
+  CalculatorIcon
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -52,6 +53,10 @@ export function Dashboard(): JSX.Element {
     queryKey: ['low-stock'],
     queryFn: () => api.itemsLowStock()
   })
+  const { data: missedCloses = [] } = useQuery({
+    queryKey: ['cash-close-missed'],
+    queryFn: () => api.cashCloseMissed()
+  })
 
   if (isLoading || !data) {
     return (
@@ -74,6 +79,31 @@ export function Dashboard(): JSX.Element {
 
       {/* Alerts row */}
       <div className="space-y-3 mb-6">
+        {missedCloses.length > 0 && (
+          <div
+            className="card p-4 border-r-4 border-r-warn bg-amber-50/50 cursor-pointer hover:bg-amber-50"
+            onClick={() => nav(`/cash-close?date=${missedCloses[0].date}`)}
+            title="افتح أقدم يوم لم يُقفَل"
+          >
+            <div className="flex items-center gap-3">
+              <CalculatorIcon className="text-warn shrink-0" size={22} />
+              <div className="flex-1">
+                <div className="font-bold text-ink">
+                  {fmtNumber(missedCloses.length)}{' '}
+                  {missedCloses.length === 1 ? 'يوم لم يُقفَل' : 'أيام لم تُقفَل'}
+                </div>
+                <div className="text-sm text-ink-muted">
+                  {missedCloses
+                    .slice(0, 4)
+                    .map((m) => m.date)
+                    .join(' • ')}
+                  {missedCloses.length > 4 ? ' • ...' : ''}
+                </div>
+              </div>
+              <span className="chip">قفل</span>
+            </div>
+          </div>
+        )}
         {lowStock.length > 0 && (
           <div
             className="card p-4 border-r-4 border-r-bad bg-red-50/50 cursor-pointer hover:bg-red-50"

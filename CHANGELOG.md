@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.6.0] — 2026-05-01
+
+### Added — backfilling missed cash closes
+- 📅 **Date navigation in تقفيلة اليوم** — السابق / التالي / اليوم buttons + a date picker so you can open and close any past day you forgot. Future dates are blocked. Deep-linkable via `?date=YYYY-MM-DD`.
+- 🚨 **Dashboard alert card** — lists past 30 days that had cash activity but no closing record. Click to jump straight to that day.
+- 🔔 **One-shot startup toast** — fires the next time you open the app if any past days are still unclosed.
+
+### Fixed
+- 🕒 **Cash-close UTC bug** — the IPC handler used `new Date().toISOString()` (UTC) for "today" instead of local-timezone today, so close to midnight UTC the wrong day's data could load. Now matches the renderer's `todayISO()`.
+
+### Database
+- New `cashClose:missed` IPC + `CashCloseRepo.missedCloses()` repo method. Excludes today (still in progress), already-closed days, and zero-cash-activity days.
+
+### Tests
+- 6 new tests covering missed-close detection: today excluded, closed-day excluded, ordering most-recent-first, non-cash methods ignored, suggested actual matches expected.
+
+---
+
 ## [1.5.0] — 2026-04-29
 
 ### Added — opening cash float

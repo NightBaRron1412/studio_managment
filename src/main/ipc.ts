@@ -193,12 +193,19 @@ export function registerIpc(): void {
   ipcMain.handle('inventory:delete', safe((id: number) => InventoryRepo.delete(id)))
 
   // Cash close
-  ipcMain.handle('cashClose:today', safe(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    return CashCloseRepo.todayInfo(today)
+  ipcMain.handle('cashClose:today', safe((date?: string) => {
+    // Date defaults to local-timezone today. Renderer can pass any past
+    // date to backfill a missed close. toISOString() returns UTC, so we
+    // build the YYYY-MM-DD ourselves to avoid the day-rollover bug at
+    // night when local and UTC dates disagree.
+    if (date) return CashCloseRepo.todayInfo(date)
+    const now = new Date()
+    const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    return CashCloseRepo.todayInfo(local)
   }))
   ipcMain.handle('cashClose:submit', safe((input: any) => CashCloseRepo.submit(input)))
   ipcMain.handle('cashClose:list', safe(() => CashCloseRepo.list()))
+  ipcMain.handle('cashClose:missed', safe(() => CashCloseRepo.missedCloses()))
 
   // Recycle
   ipcMain.handle('recycle:list', safe(() => RecycleRepo.list()))
