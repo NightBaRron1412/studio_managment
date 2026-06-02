@@ -97,14 +97,15 @@ This app is **purpose-built for photography studios**, **fully Arabic with prope
 
 ### 📅 Schedule & Operations
 - **حجوزات الجلسات** — sessions calendar with type, deposit, status; today/upcoming/past filters
-- **طلبات قيد التسليم** — pickup status (pending/ready/delivered) with overdue alerts
+- **طلبات قيد التسليم** — pickup status (pending/ready/delivered) with overdue alerts and live search by invoice number or client name
 - **تذكيرات** — to-do list with due dates and dashboard alerts
 - **تقفيلة اليوم** — end-of-day cash close with opening float (carries over from yesterday's drawer), expected vs actual, and difference history
 
 ### 💸 Money Out
-- **سحوبات نقدية** — cash withdrawals with date, amount, person, reason
+- **سحوبات نقدية** — cash withdrawals with date, amount, person, reason; month-by-month view that resets each month
 - **إيجار شهري** — month-by-month rent with partial payments and progress bar
-- **مشتريات الموردين** — supplier purchases ledger with quantity, cost, supplier
+- **مشتريات الموردين** — supplier purchases ledger with quantity, cost, supplier; month-by-month view that resets each month
+- **إجمالي مصاريف الشهر** — combined monthly spend card (withdrawals + purchases + rent) on the سحوبات and مشتريات pages
 
 ### 📦 Inventory & Stock
 - **تتبّع المخزون لكل صنف** — per-item toggle, so services (photo session) stay simple while physical goods (frames, CDs, prints) get real stock counts

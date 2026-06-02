@@ -5,6 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ---
 
+## [1.7.0] — 2026-06-02
+
+### Added — per-month spending views
+- 🗓️ **شهر-بشهر للسحوبات والمشتريات** — صفحتا «سحوبات نقدية» و«مشتريات الموردين» أصبحتا تعرضان شهراً واحداً فقط مع أزرار «الشهر السابق / التالي» (نفس نمط صفحة الإيجار). إجمالي كل شهر يبدأ من الصفر تلقائياً عند بداية شهر جديد.
+- 💸 **بطاقة «إجمالي مصاريف الشهر»** — تجمع سحوبات + مشتريات + إيجار مدفوع للشهر المختار، مع تفصيل لكل بند، تظهر على صفحتَي السحوبات والمشتريات.
+- 🔍 **بحث في «طلبات قيد التسليم»** — مربع بحث فوري يصفّي الطلبات برقم الفاتورة أو اسم العميل، مع حالة «لا توجد نتائج مطابقة».
+
+### UX
+- 📅 **تاريخ افتراضي ذكي** — عند تسجيل سحب/شراء أثناء تصفّح شهر سابق، يبدأ تاريخ النموذج من ذلك الشهر بدلاً من اليوم، فلا يختفي السجل الجديد من العرض.
+
+### Internal
+- New `monthRange(year, month)` helper in `lib/format.ts`, and reusable `MonthNav` + `MonthlySpendSummary` components. List query keys are now `['withdrawals'|'inventory', from, to]`; existing prefix-based cache invalidations still match.
+
+---
+
 ## [1.6.0] — 2026-05-01
 
 ### Added — backfilling missed cash closes
