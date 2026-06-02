@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { fmtMoney, fmtDateShort } from '@/lib/format'
-import { Package, CheckCircle2, Clock, MessageCircle, AlertTriangle, Wallet, AlertCircle } from 'lucide-react'
+import { Package, CheckCircle2, Clock, MessageCircle, AlertTriangle, Wallet, AlertCircle, Search } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Dialog } from '@/components/ui/Dialog'
 import { toast } from '@/store/toast'
@@ -15,13 +15,23 @@ import type { Transaction } from '@shared/types'
 export function Pickups(): JSX.Element {
   const nav = useNavigate()
   const qc = useQueryClient()
+  const [q, setQ] = useState('')
   const { data: list = [] } = useQuery({
     queryKey: ['pickups'],
     queryFn: () => api.pendingPickupsList()
   })
 
   const today = new Date().toISOString().slice(0, 10)
-  const overdue = list.filter((t) => t.pickup_promised_date && t.pickup_promised_date < today)
+  // Filter by invoice number or client name (case-insensitive, trimmed).
+  const query = q.trim().toLowerCase()
+  const filtered = query
+    ? list.filter(
+        (t) =>
+          String(t.transaction_no).toLowerCase().includes(query) ||
+          (t.client_name || '').toLowerCase().includes(query)
+      )
+    : list
+  const overdue = filtered.filter((t) => t.pickup_promised_date && t.pickup_promised_date < today)
 
   const setStatus = useMutation({
     mutationFn: ({
@@ -156,12 +166,34 @@ export function Pickups(): JSX.Element {
         </div>
       )}
 
+      {list.length > 0 && (
+        <div className="card p-4 mb-4">
+          <div className="relative">
+            <Search className="absolute top-1/2 -translate-y-1/2 right-3 text-ink-soft" size={18} />
+            <input
+              className="input pr-10"
+              placeholder="بحث برقم الفاتورة أو اسم العميل..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
       {list.length === 0 ? (
         <div className="card">
           <EmptyState
             title="لا يوجد طلبات قيد التسليم"
             hint="جميع الطلبات تم تسليمها للعملاء ✓"
             icon={<CheckCircle2 size={28} className="text-good" />}
+          />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="card">
+          <EmptyState
+            title="لا توجد نتائج مطابقة"
+            hint="جرّب رقم فاتورة أو اسم عميل آخر."
+            icon={<Search size={28} className="text-ink-soft" />}
           />
         </div>
       ) : (
@@ -180,7 +212,7 @@ export function Pickups(): JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {list.map((t) => {
+              {filtered.map((t) => {
                 const isOverdue = t.pickup_promised_date && t.pickup_promised_date < today
                 const rem = Math.max(0, Number((t.total - t.paid_amount).toFixed(2)))
                 const fullyPaid = rem <= 0.0001

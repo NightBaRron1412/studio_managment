@@ -69,3 +69,15 @@ export function todayISO(): string {
 export function monthLabel(year: number, month: number): string {
   return `${arabicMonths[month - 1]} ${maybeArabic(String(year))}`
 }
+
+// First/last calendar day of a (1-based) month as ISO date strings, for
+// scoping list queries to a single month. `to` is the actual last day so
+// inclusive `date <= to` filters capture the whole month.
+export function monthRange(year: number, month: number): { from: string; to: string } {
+  const last = new Date(year, month, 0).getDate()
+  const mm = String(month).padStart(2, '0')
+  return {
+    from: `${year}-${mm}-01`,
+    to: `${year}-${mm}-${String(last).padStart(2, '0')}`
+  }
+}

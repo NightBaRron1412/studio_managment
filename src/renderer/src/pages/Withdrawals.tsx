@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
-import { fmtMoney, fmtDateShort, todayISO } from '@/lib/format'
+import { fmtMoney, fmtDateShort, todayISO, monthRange } from '@/lib/format'
+import { MonthNav } from '@/components/MonthNav'
+import { MonthlySpendSummary } from '@/components/MonthlySpendSummary'
 import { Plus, Trash2 } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -11,6 +13,9 @@ import { pushUndo } from '@/store/undo'
 
 export function Withdrawals(): JSX.Element {
   const qc = useQueryClient()
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [month, setMonth] = useState(now.getMonth() + 1)
   const [open, setOpen] = useState(false)
   const [delId, setDelId] = useState<number | null>(null)
   const [date, setDate] = useState(todayISO())
@@ -18,7 +23,11 @@ export function Withdrawals(): JSX.Element {
   const [by, setBy] = useState('')
   const [reason, setReason] = useState('')
 
-  const { data: list = [] } = useQuery({ queryKey: ['withdrawals'], queryFn: () => api.withdrawalsList() })
+  const { from, to } = monthRange(year, month)
+  const { data: list = [] } = useQuery({
+    queryKey: ['withdrawals', from, to],
+    queryFn: () => api.withdrawalsList({ date_from: from, date_to: to })
+  })
   const total = list.reduce((s, w) => s + w.amount, 0)
 
   const create = useMutation({
@@ -69,21 +78,39 @@ export function Withdrawals(): JSX.Element {
         title="السحوبات النقدية"
         subtitle="تسجيل ومتابعة المبالغ المسحوبة من الخزنة"
         actions={
-          <button className="btn-primary" onClick={() => setOpen(true)}>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setDate(year === now.getFullYear() && month === now.getMonth() + 1 ? todayISO() : from)
+              setOpen(true)
+            }}
+          >
             <Plus size={18} />
             تسجيل سحب
           </button>
         }
       />
 
-      <div className="card p-5 mb-4 flex items-center justify-between">
-        <span className="text-ink-muted">إجمالي السحوبات المعروضة</span>
-        <span className="text-2xl font-extrabold num text-warn">{fmtMoney(total)}</span>
+      <div className="card p-5 mb-4">
+        <MonthNav
+          year={year}
+          month={month}
+          onChange={(y, m) => {
+            setYear(y)
+            setMonth(m)
+          }}
+        />
+        <div className="flex items-center justify-between border-t border-bg-subtle mt-4 pt-4">
+          <span className="text-ink-muted">إجمالي سحوبات الشهر</span>
+          <span className="text-2xl font-extrabold num text-warn">{fmtMoney(total)}</span>
+        </div>
       </div>
+
+      <MonthlySpendSummary year={year} month={month} />
 
       <div className="card overflow-hidden">
         {list.length === 0 ? (
-          <EmptyState title="لا توجد سحوبات بعد" hint="سجّل أول سحب نقدي." />
+          <EmptyState title="لا توجد سحوبات لهذا الشهر" hint="سجّل أول سحب نقدي." />
         ) : (
           <table className="table">
             <thead>

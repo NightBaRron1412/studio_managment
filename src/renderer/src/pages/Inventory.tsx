@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
-import { fmtMoney, fmtDateShort, todayISO } from '@/lib/format'
+import { fmtMoney, fmtDateShort, todayISO, monthRange } from '@/lib/format'
+import { MonthNav } from '@/components/MonthNav'
+import { MonthlySpendSummary } from '@/components/MonthlySpendSummary'
 import { Plus, Trash2 } from 'lucide-react'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -11,6 +13,9 @@ import { pushUndo } from '@/store/undo'
 
 export function Inventory(): JSX.Element {
   const qc = useQueryClient()
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [month, setMonth] = useState(now.getMonth() + 1)
   const [open, setOpen] = useState(false)
   const [delId, setDelId] = useState<number | null>(null)
   const [date, setDate] = useState(todayISO())
@@ -20,7 +25,11 @@ export function Inventory(): JSX.Element {
   const [supplier, setSupplier] = useState('')
   const [note, setNote] = useState('')
 
-  const { data: list = [] } = useQuery({ queryKey: ['inventory'], queryFn: () => api.inventoryList() })
+  const { from, to } = monthRange(year, month)
+  const { data: list = [] } = useQuery({
+    queryKey: ['inventory', from, to],
+    queryFn: () => api.inventoryList({ date_from: from, date_to: to })
+  })
   const total = list.reduce((s, it) => s + it.cost, 0)
 
   const create = useMutation({
@@ -70,21 +79,39 @@ export function Inventory(): JSX.Element {
         title="مشتريات الموردين"
         subtitle="سجل المشتريات من الموردين. لتتبّع كميات المخزون افتح الإعدادات → الأصناف."
         actions={
-          <button className="btn-primary" onClick={() => setOpen(true)}>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setDate(year === now.getFullYear() && month === now.getMonth() + 1 ? todayISO() : from)
+              setOpen(true)
+            }}
+          >
             <Plus size={18} />
             تسجيل شراء
           </button>
         }
       />
 
-      <div className="card p-5 mb-4 flex items-center justify-between">
-        <span className="text-ink-muted">إجمالي المشتريات المعروضة</span>
-        <span className="text-2xl font-extrabold num">{fmtMoney(total)}</span>
+      <div className="card p-5 mb-4">
+        <MonthNav
+          year={year}
+          month={month}
+          onChange={(y, m) => {
+            setYear(y)
+            setMonth(m)
+          }}
+        />
+        <div className="flex items-center justify-between border-t border-bg-subtle mt-4 pt-4">
+          <span className="text-ink-muted">إجمالي مشتريات الشهر</span>
+          <span className="text-2xl font-extrabold num">{fmtMoney(total)}</span>
+        </div>
       </div>
+
+      <MonthlySpendSummary year={year} month={month} />
 
       <div className="card overflow-hidden">
         {list.length === 0 ? (
-          <EmptyState title="لم تُسجل أي مشتريات بعد" />
+          <EmptyState title="لم تُسجل أي مشتريات لهذا الشهر" />
         ) : (
           <table className="table">
             <thead>
